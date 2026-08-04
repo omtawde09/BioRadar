@@ -1,0 +1,51 @@
+# Pipeline run outputs -- large, regenerable, and one directory per run.
+# Keep the demo run committed if you want a fallback for the judges; everything
+# else is disposable.
+runs/
+!runs/.gitkeep
+
+# CI scratch space
+.ci-work/
+
+# Generated mock data. Deterministic for a given seed, so regenerate rather than
+# commit: `python -m bioradar.mockgen -o mock/ --rounds 3`
+mock/
+
+# QIIME2 classifiers. ~22 MB, extracted from the Docker image rather than
+# version-controlled. See docs/PIPELINE.md for how to recover them.
+bioradar-pipeline/database/qiime2-qza/*.qza
+
+# Downloaded FASTQ from public archives. Regenerate with:
+#   python -m bioradar.fetch_data --project <ACC> -o data/<name>
+# The sites.csv / samples.csv / manifest.json alongside them ARE committed --
+# they are small and they are the map metadata.
+data/*/fastq/
+
+# Snakemake internals
+.snakemake/
+bioradar-pipeline/config.yaml
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Reference-build checkpoints. ~23 MB of redundant JSON whose only purpose is
+# letting an interrupted build resume; reference.fasta/.taxon are the outputs
+# worth keeping.
+data/reference_coi_india/.cache/
+
+# Uploaded datasets are transient user data, not part of the project.
+data/uploads/
+reports/*.md

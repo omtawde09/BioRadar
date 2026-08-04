@@ -1,0 +1,4 @@
+{
+  "_comment": "Optional pre-registered datasets. The Remove button drops entries from this file without touching the FASTQ files.",
+  "datasets": []
+}

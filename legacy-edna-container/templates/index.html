@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<script>
+        function unDisable() {
+            document.getElementById('inputGroupFileAddon04').disabled = false;
+        }
+    </script>
+
+<div class="row">
+  <div class="col-sm-8 offset-sm-2">
+    <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+      <h1 class="display-4">The eDNA-container App</h1>
+      <p class="lead">Select a folder of paired-end "fastq.gz" sequencing files to process through the eDNA pipeline.<br> <a
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="mb-4 col-md-8 offset-md-5">
+    <form action="/infer" method="POST" enctype="multipart/form-data">
+      <div class="input-group">
+        <div class="custom-file">
+          <input type="file" name="file" webkitdirectory="" class="custom-file-input" id="inputGroupFile" 
+            aria-describedby="inputGroupFileAddon04" onclick="unDisable()" >
+          <label class="custom-file-label" for="inputGroupFile">Choose folder</label>
+        </div>
+        <div class="input-group-append">
+          <input type="submit" value="Process folder"  class="btn btn-outline-secondary" type="button"
+            id="inputGroupFileAddon04" disabled="disabled" /> 
+        </div>
+      </div>
+    </form>
+  </div>
+    <div class="row">
+    <div class="col-md-10 offset-md-8"
+        <p></p>
+        <p>
+        <br>If you find this App useful please <a href=https://doi.org/10.3390/app14062641>cite us</a>
+        </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
