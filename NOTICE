@@ -59,12 +59,25 @@ Modifications to upstream files
     `rule all` extended with three additional targets. The ten upstream rules
     and their input/output contracts are unchanged.
 
+  * bioradar-pipeline/rules/*.smk -- `denoiser` switch added so a run can use
+    vsearch (97% OTUs) instead of DADA2 when the input carries no usable
+    quality scores; `fast` switch added so the PDF QC report and rarefaction
+    can be skipped. Both default to upstream behaviour where behaviour matters.
+
+Redistribution as a container image
+  BioRadar publishes ghcr.io/omtawde09/bioradar-pipeline, built from
+  docker/Dockerfile.pipeline with `dwheelerau/edna:v1.4` as its base. The
+  derived image relocates the analysis assets to /opt/bioradar/ and carries a
+  copy of this NOTICE and of LICENSE at /opt/bioradar/, so the attribution
+  travels with the image and not only with this repository. Apache-2.0
+  Section 4 permits this redistribution in modified form on exactly these
+  terms.
+
 Removals
   * The Flask web GUI (app.py, templates/, static/, the desktop launcher and
-    install script) is not part of the BioRadar build. It has been moved to
-    legacy-edna-container/ rather than deleted, so the upstream work remains
-    visible and attributable. BioRadar replaces it with a React dashboard and a
-    FastAPI backend.
+    install script) is not part of the BioRadar build and is not carried in
+    this repository. BioRadar replaces it with its own web application. The
+    upstream GUI remains available from the sources listed above.
 
 Not modified
   The bioinformatics itself is upstream's and is deliberately untouched: the

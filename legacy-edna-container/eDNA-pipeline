@@ -1,3 +1,0 @@
-#!/bin/bash
-source /home/wheeled/mambaforge/bin/activate eDNA-app2
-python /home/wheeled/projects/202308mduncan/edna-container/app.py 2>&1 | tee -a run_log.txt

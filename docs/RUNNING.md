@@ -33,7 +33,7 @@ manual path, for when you need to fetch new data or rebuild a classifier.
 ### Docker Desktop, no terminal
 
 The `bioradar/app` image exists so this works entirely by point-and-click. The
-stock `dwheelerau/edna` image cannot: its `ENTRYPOINT` starts the old Flask GUI,
+stock `ghcr.io/omtawde09/bioradar-pipeline` image cannot: its `ENTRYPOINT` starts the old Flask GUI,
 and Docker Desktop's Run dialog has no field to override an entrypoint.
 
 1. **Images** tab → row `bioradar/app` `latest` → click **▶ Run** (Actions column).
@@ -99,7 +99,7 @@ Give Docker Desktop at least **6 GB of memory** (Settings → Resources). DADA2 
 The 11.7 GB image is the single biggest download. Pull it before hackathon day:
 
 ```bash
-docker pull dwheelerau/edna:v1.4
+docker pull ghcr.io/omtawde09/bioradar-pipeline:v1.0
 ```
 
 ---
@@ -369,7 +369,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$PWD/runs/<run-id>:/work" \
   -v "$PWD/bioradar-pipeline/database:/db:ro" \
   -v "$PWD:/repo:ro" \
-  --entrypoint snakemake dwheelerau/edna:v1.4 \
+  --entrypoint snakemake ghcr.io/omtawde09/bioradar-pipeline:v1.0 \
   --cores 4 --snakefile /work/Snakefile --directory /work all
 ```
 

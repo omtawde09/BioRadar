@@ -155,7 +155,7 @@ You should see *"Hello from Docker!"*. If you do, you are ready.
 This is the 11.7 GB download. Start it now and let it run in the background:
 
 ```bash
-docker pull dwheelerau/edna:v1.4
+docker pull ghcr.io/omtawde09/bioradar-pipeline:v1.0
 ```
 
 > **What is this image?** It contains the peer-reviewed eDNA analysis pipeline
@@ -166,7 +166,15 @@ docker pull dwheelerau/edna:v1.4
 Check it arrived:
 
 ```bash
-docker images dwheelerau/edna
+docker images ghcr.io/omtawde09/bioradar-pipeline
+```
+
+If the pull fails because the package is private or the registry is unreachable,
+build the image yourself instead — same result, one command, no registry account
+needed:
+
+```bash
+docker build -f docker/Dockerfile.pipeline -t ghcr.io/omtawde09/bioradar-pipeline:v1.0 .
 ```
 
 ---
@@ -199,8 +207,8 @@ Command Prompt.
 If you would rather do it by hand:
 
 ```bash
-docker create --name tmp dwheelerau/edna:v1.4
-docker cp tmp:/home/docker_conda_template/snakemake-qiime-edna/database/qiime2-qza/. \
+docker create --name tmp ghcr.io/omtawde09/bioradar-pipeline:v1.0
+docker cp tmp:/opt/bioradar/classifiers/. \
           bioradar-pipeline/database/qiime2-qza/
 docker rm tmp
 ```

@@ -13,7 +13,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-IMAGE="${BIORADAR_PIPELINE_IMAGE:-dwheelerau/edna:v1.4}"
+IMAGE="${BIORADAR_PIPELINE_IMAGE:-ghcr.io/omtawde09/bioradar-pipeline:v1.0}"
 PYTHON="${PYTHON:-python}"
 PULL=1
 [[ "${1:-}" == "--no-pull" ]] && PULL=0
@@ -65,7 +65,7 @@ else
     echo "     extracting classifiers from the image (22 MB)..."
     mkdir -p "$DB"
     CID=$(docker create "$IMAGE") || die "could not create container"
-    docker cp "$CID:/home/docker_conda_template/snakemake-qiime-edna/database/qiime2-qza/." "$DB/" \
+    docker cp "$CID:/opt/bioradar/classifiers/." "$DB/" \
         && ok "classifiers extracted" || warn "extraction failed -- copy from a teammate"
     docker rm -f "$CID" >/dev/null 2>&1
 fi

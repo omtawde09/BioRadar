@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_IMAGE = "dwheelerau/edna:v1.4"
+DEFAULT_IMAGE = "ghcr.io/omtawde09/bioradar-pipeline:v1.0"
 
 # Leray fragment -- the de facto standard for metazoan COI metabarcoding, and
 # the pair detected in the Lakshadweep reads. Inosine positions in the published

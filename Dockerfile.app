@@ -14,7 +14,7 @@
 # Then in Docker Desktop: Images → bioradar/app → Run, map port 8080, and mount
 # the repo at /bioradar. See docs/RUNNING.md §0.
 
-FROM dwheelerau/edna:v1.4
+FROM ghcr.io/omtawde09/bioradar-pipeline:v1.0
 
 LABEL org.opencontainers.image.title="BioRadar control panel"
 LABEL org.opencontainers.image.description="Run the eDNA pipeline from a browser"

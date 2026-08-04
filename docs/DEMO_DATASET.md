@@ -93,7 +93,7 @@ is missing:
 
 ```bash
 docker run --rm -v "$PWD/data/reference_coi_india:/ref:ro" -v "$PWD/runs/_amplicons:/out" \
-  --entrypoint cutadapt dwheelerau/edna:v1.4 \
+  --entrypoint cutadapt ghcr.io/omtawde09/bioradar-pipeline:v1.0 \
   -g 'GGWACWGGWTGAACWGTWTAYCCYCC...TGRTTYTTYGGNCAYCCNGARGTNTA' \
   --discard-untrimmed -e 0.2 --minimum-length 250 --maximum-length 400 \
   -o /out/amplicons.fasta /ref/reference.fasta

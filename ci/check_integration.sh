@@ -201,7 +201,7 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && [[ $FAST 
     check "package imports under the container Python" \
         env MSYS_NO_PATHCONV=1 docker run --rm \
         -v "$(pwd):/bioradar" -e PYTHONPATH=/bioradar -w /bioradar \
-        --entrypoint python "${BIORADAR_PIPELINE_IMAGE:-dwheelerau/edna:v1.4}" -c "
+        --entrypoint python "${BIORADAR_PIPELINE_IMAGE:-ghcr.io/omtawde09/bioradar-pipeline:v1.0}" -c "
 import bioradar.contract, bioradar.normalize, bioradar.chain_client
 import bioradar.time_machine, bioradar.mockgen, bioradar.pipeline_runner
 import bioradar.preflight, bioradar.report, bioradar.webapp

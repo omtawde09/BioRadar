@@ -53,7 +53,7 @@ from bioradar.contract import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PIPELINE_DIR = REPO_ROOT / "bioradar-pipeline"
 DEFAULT_RUNS_DIR = REPO_ROOT / "runs"
-DEFAULT_IMAGE = os.environ.get("BIORADAR_PIPELINE_IMAGE", "dwheelerau/edna:v1.4")
+DEFAULT_IMAGE = os.environ.get("BIORADAR_PIPELINE_IMAGE", "ghcr.io/omtawde09/bioradar-pipeline:v1.0")
 
 # Files and directories copied into each run's working directory. The database
 # directory is deliberately excluded -- it is large, read-only, and shared.
