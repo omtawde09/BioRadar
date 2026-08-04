@@ -21,6 +21,12 @@ bioradar-pipeline/database/qiime2-qza/*.qza
 # they are small and they are the map metadata.
 data/*/fastq/
 
+# ...except the demonstration dataset, which is only 12 MB and is the thing the
+# README tells a new user to run first. Shipping the app without its sample data
+# makes the install guide untestable.
+!data/demo_survey/fastq/
+!data/demo_survey/fastq/**
+
 # Snakemake internals
 .snakemake/
 bioradar-pipeline/config.yaml
