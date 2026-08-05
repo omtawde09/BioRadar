@@ -196,23 +196,54 @@ def _invalidate_describe(dataset_id: str) -> None:
         _DESCRIBE_CACHE.pop(dataset_id, None)
 
 
-def _remove_registry_entry(dataset_id: str) -> bool:
-    """Drop a dataset from data/datasets.json, preserving the rest of the file."""
-    if not DATASETS_FILE.is_file():
-        return False
+# Which bundled datasets this machine has hidden. Gitignored, because it is a
+# local preference, not project data.
+HIDDEN_FILE = REPO_ROOT / "data" / ".hidden_datasets.json"
+
+
+def hidden_dataset_ids() -> set:
+    if not HIDDEN_FILE.is_file():
+        return set()
     try:
-        payload = json.loads(DATASETS_FILE.read_text(encoding="utf-8"))
-    except ValueError:
+        return set(json.loads(HIDDEN_FILE.read_text(encoding="utf-8")))
+    except (ValueError, TypeError):
+        return set()
+
+
+def _remove_registry_entry(dataset_id: str) -> bool:
+    """Hide a bundled dataset on this machine.
+
+    Deliberately does NOT edit data/datasets.json. That file is tracked in git
+    and is what gives a fresh clone something to run immediately -- the README
+    and README_TEAM both tell a new teammate to click Analyze on the bundled
+    demo survey. An earlier version dropped the entry from it, so pressing
+    Remove in the UI silently produced a source-code change; it was committed
+    twice by accident, and the second time it reached the public repository,
+    where every new clone saw an empty dataset list and no reason why.
+
+    The removal is a local preference, so it is stored like one.
+    """
+    known = {d.get("id") for d in load_datasets()}
+    if dataset_id not in known:
         return False
 
-    datasets = payload.get("datasets", [])
-    remaining = [d for d in datasets if d.get("id") != dataset_id]
-    if len(remaining) == len(datasets):
+    hidden = hidden_dataset_ids()
+    if dataset_id in hidden:
         return False
-
-    payload["datasets"] = remaining
-    DATASETS_FILE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    hidden.add(dataset_id)
+    HIDDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HIDDEN_FILE.write_text(
+        json.dumps(sorted(hidden), indent=2) + "\n", encoding="utf-8"
+    )
     return True
+
+
+def restore_hidden_datasets() -> int:
+    """Un-hide everything. `python -m bioradar.webapp --restore-datasets`."""
+    count = len(hidden_dataset_ids())
+    if HIDDEN_FILE.is_file():
+        HIDDEN_FILE.unlink()
+    return count
 
 
 # --------------------------------------------------------------------------
@@ -728,7 +759,9 @@ def uploaded_datasets() -> List[Dict[str, Any]]:
 
 
 def all_datasets() -> List[Dict[str, Any]]:
-    return load_datasets() + uploaded_datasets()
+    hidden = hidden_dataset_ids()
+    bundled = [d for d in load_datasets() if d.get("id") not in hidden]
+    return bundled + uploaded_datasets()
 
 
 # --------------------------------------------------------------------------
@@ -1130,12 +1163,14 @@ class Handler(BaseHTTPRequestHandler):
         # because they wanted a tidier list would be the wrong trade.
         if not _remove_registry_entry(dataset_id):
             return self._json(404, {"error": "dataset is not in the registry"})
-        log.info("dataset.deregistered", dataset=dataset_id)
+        log.info("dataset.hidden", dataset=dataset_id)
         return self._json(200, {
             "removed": dataset_id,
             "files_deleted": False,
-            "note": "Removed from the list. The FASTQ files are still in {d}.".format(
-                d=entry["fastq_dir"]),
+            "note": "Hidden on this machine. The FASTQ files are still in {d}, and "
+                    "nothing tracked in git changed. Run "
+                    "`python -m bioradar.webapp --restore-datasets` to bring it "
+                    "back.".format(d=entry["fastq_dir"]),
         })
 
     # -- POST -----------------------------------------------------------
@@ -1379,7 +1414,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--restore-datasets",
+        action="store_true",
+        help="un-hide every bundled dataset removed through the UI, then exit",
+    )
     args = parser.parse_args(argv)
+    if args.restore_datasets:
+        print("restored {n} hidden dataset(s)".format(n=restore_hidden_datasets()))
+        return 0
     serve(args.host, args.port, args.verbose)
     return 0
 

@@ -780,7 +780,7 @@
           UI.button(t("analyze.remove"), {
             size: "sm",
             title: dataset.uploaded ? "Deletes the uploaded files"
-                                    : "Removes it from the list; files stay on disk",
+                                    : "Hides it on this machine; no files are deleted",
             data: { del: dataset.id, uploaded: dataset.uploaded ? "1" : "0" }
           }) +
         "</div>"
@@ -807,12 +807,13 @@
 
   function confirmDelete(id, uploaded) {
     UI.modal(
-      uploaded ? "Delete this dataset?" : "Remove from the list?",
+      uploaded ? "Delete this dataset?" : "Hide this dataset?",
       "<p>" + (uploaded
         ? "This deletes the uploaded FASTQ files from the server. It cannot be undone."
-        : "The dataset comes off the list. Its files stay on disk untouched.") + "</p>",
+        : "The dataset is hidden on this machine only. No files are deleted and "
+        + "nothing in the project changes, so your teammates still see it.") + "</p>",
       UI.button(t("common.cancel"), { id: "delCancel" }) +
-      UI.button(uploaded ? "Delete" : "Remove", { id: "delConfirm", variant: "danger" })
+      UI.button(uploaded ? "Delete" : "Hide", { id: "delConfirm", variant: uploaded ? "danger" : "primary" })
     );
     document.getElementById("delCancel").addEventListener("click", UI.closeModal);
     document.getElementById("delConfirm").addEventListener("click", function () {

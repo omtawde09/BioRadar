@@ -688,6 +688,25 @@ git rebase --continue
 Read both sides before choosing. "Accept mine" on a file a teammate just fixed
 silently deletes their fix.
 
+### If the demo dataset disappears from the app
+
+Pressing **Remove** on the bundled demo survey hides it **on your machine only**
+— it writes an id into `data/.hidden_datasets.json`, which is gitignored. Nothing
+tracked changes, so your teammates are unaffected.
+
+To bring it back:
+
+```bash
+python -m bioradar.webapp --restore-datasets
+```
+
+If `data/datasets.json` itself ever shows up in `git status` as modified, do not
+commit it. An earlier version of the Remove button edited that file directly,
+which meant a click in the UI became a source-code change — it reached the public
+repository once, and every fresh clone opened with an empty dataset list. Restore
+it with `git checkout data/datasets.json`. A test now fails if the demo entry
+goes missing.
+
 ### Never commit these
 
 `.gitignore` already covers them, but so you know why:

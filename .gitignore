@@ -67,3 +67,8 @@ data/verifications.jsonl
 
 # Local dev-server config for the editor's preview pane.
 .claude/
+
+# Bundled datasets hidden through the UI's Remove button. A local
+# preference, not project data -- and keeping it out of git is what stops
+# a click in the app turning into a committed source change.
+data/.hidden_datasets.json
