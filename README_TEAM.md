@@ -313,55 +313,27 @@ docker rm tmp
 You can leave the defaults; only the backend needs `JWT_SECRET`, and the backend
 does not exist yet.
 
-### The India COI classifier: read this, it will block you
+### About the classifiers
 
-`setup.sh` pulls the classifiers **out of the Docker image**, and the image
-contains only two, both from upstream:
+`setup.sh` pulls two classifiers **out of the Docker image** — the upstream 12S
+ones. The third, **`classifier-coi-india-2026.qza`**, is the one our demo
+dataset needs, and it is **committed to the repository**, so you already have it
+after cloning. Nothing to do.
 
-```
-MIDORI2_UNIQ_NUC_GB253_srRNA_QIIME-classifier.qza    12S fish
-QIIME-classifier-mccoll-v0.1.qza                      12S V5
-```
+It is the one binary file we track on purpose. It is not in the image, and
+retraining it takes 10–40 minutes, so excluding it meant every fresh clone
+opened with the demo dataset blocked and no obvious reason why.
 
-The one our demonstration dataset actually needs —
-**`classifier-coi-india-2026.qza`** — is *not* in the image and *not* in git
-(`.gitignore` excludes `*.qza`, because binary model files do not belong in
-version control). It was trained separately.
-
-**Symptom if you skip this:** the demo dataset shows a red **blocked** badge
-reading *"Classifier classifier-coi-india-2026.qza not built yet"*, and the
-**Analyze** button is disabled. Nothing else looks wrong.
-
-Three ways to fix it, easiest first:
-
-**1. Ask Om for the file.** It is 9.1 MB — small enough to send over chat or
-drop on a shared drive. Put it in:
-
-```
-bioradar-pipeline/database/qiime2-qza/classifier-coi-india-2026.qza
-```
-
-Refresh the browser; the badge turns green. This is what you want 95% of the
-time.
-
-**2. Train it yourself.** The reference it is built from *is* in git
-(`data/reference_coi_india/`, 21 MB), so you can reproduce it exactly:
+If you ever need to rebuild it — say you have extended the reference database:
 
 ```bash
-docker compose run --rm --entrypoint python app -m bioradar.train_classifier \
-    --reference data/reference_coi_india \
-    --output bioradar-pipeline/database/qiime2-qza/classifier-coi-india-2026.qza
+docker compose run --rm --entrypoint python app -m bioradar.train_classifier     --reference data/reference_coi_india     --output bioradar-pipeline/database/qiime2-qza/classifier-coi-india-2026.qza
 ```
 
-Expect **10–40 minutes** and several GB of RAM. It has to run inside the
-container: a `.qza` embeds a pickled scikit-learn model, and QIIME 2 refuses to
-load one built against a different scikit-learn version — so a classifier
-trained on your host Python would fail several minutes into a run with a version
-mismatch.
-
-**3. Bake it into the image** (Om, post-hackathon). Adding the trained
-classifier to `docker/Dockerfile.pipeline` and publishing `:v1.1` makes this
-whole section unnecessary for everyone who joins later.
+It has to run **inside the container**: a `.qza` embeds a pickled scikit-learn
+model, and QIIME 2 refuses to load one built against a different scikit-learn
+version, so a classifier trained on your host Python would fail several minutes
+into a run with a version mismatch.
 
 ### Do you need Python on the host?
 
@@ -909,7 +881,6 @@ Click it and read the reason — it will tell you exactly what is wrong.
 
 | Message | What it means |
 |---|---|
-| `Classifier classifier-coi-india-2026.qza not built yet` | The India COI classifier is not in the image or in git. Get it from Om, or train it — see [§5](#the-india-coi-classifier-read-this-it-will-block-you). This is the most common first-run stumble. |
 | `Classifier ... not built yet` (any other) | Re-run `./scripts/setup.sh`, or extract the classifiers by hand ([§5](#5-first-time-setup)) |
 | `named .gz but is not gzip data` | The file is corrupt or was decompressed and renamed. Re-transfer it. |
 | `truncated or corrupt` | The download or upload was cut short. gzip's checksum caught it — which is the whole point, because otherwise it fails half an hour into DADA2 with an error nobody can read. |

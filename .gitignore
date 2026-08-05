@@ -11,9 +11,16 @@ runs/
 # commit: `python -m bioradar.mockgen -o mock/ --rounds 3`
 mock/
 
-# QIIME2 classifiers. ~22 MB, extracted from the Docker image rather than
+# QIIME2 classifiers. Extracted from the Docker image rather than
 # version-controlled. See docs/PIPELINE.md for how to recover them.
 bioradar-pipeline/database/qiime2-qza/*.qza
+
+# ...except the India-curated COI classifier, which is the one the bundled demo
+# dataset needs and the only one that exists nowhere else -- it is not in the
+# image and it takes 10-40 minutes to retrain. Excluding it meant every fresh
+# clone opened with the demo dataset blocked. 9.1 MB is a small price for the
+# project's first-run path working for everyone.
+!bioradar-pipeline/database/qiime2-qza/classifier-coi-india-2026.qza
 
 # Downloaded FASTQ from public archives. Regenerate with:
 #   python -m bioradar.fetch_data --project <ACC> -o data/<name>
