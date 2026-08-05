@@ -262,7 +262,12 @@
   }
 
   function setLanguage(lang) {
-    current = STRINGS[lang] ? lang : "en";
+    var wanted = STRINGS[lang] ? lang : "en";
+    // Switching to the language already in use rebuilds the entire shell for
+    // no reason. Defence in depth: a stray caller cannot turn a no-op into a
+    // full teardown, let alone into a loop.
+    if (wanted === current && document.body.getAttribute("data-lang") === wanted) return;
+    current = wanted;
     document.body.setAttribute("data-lang", current);
     document.documentElement.setAttribute("lang", current);
     try { localStorage.setItem("bioradar.lang", current); } catch (e) { /* private mode */ }

@@ -211,14 +211,15 @@
     if (!feature.mounted && feature.mount) {
       feature.mount(container);
       feature.mounted = true;
+      // mount() has just written an empty body, so the recorded signature no
+      // longer describes what is on screen and the next render must not be
+      // skipped. Invalidating *here* rather than on every navigation matters:
+      // a hidden view keeps its DOM, so re-rendering it on every visit would
+      // tear down and rebuild the Leaflet map -- re-downloading every tile --
+      // each time the user clicked back to Results.
+      invalidate(id);
     }
     activeViewId = id;
-
-    // Always repaint a view the user just opened. The signature guard exists to
-    // skip redundant *polling* re-renders; letting it skip a navigation leaves
-    // the user looking at an empty panel, because mount() has just replaced the
-    // container the previous render wrote into.
-    invalidate(id);
 
     if (feature.onShow) feature.onShow(container);
     if (feature.refresh) feature.refresh(container);
@@ -286,18 +287,27 @@
   Registry.registerFeature({
     id: "lang-toggle", name: "Language", slot: "header-action", order: 20,
     mount: function () {
-      return '<div class="segmented" role="group" aria-label="Language">' +
+      // data-set-lang, not data-lang. <body> carries data-lang as the active
+      // language, so a `[data-lang]` selector also matches the body element --
+      // and binding a click handler to <body> means every click anywhere in the
+      // app bubbles into it. That handler switched the language, which rebuilt
+      // the shell, which bound another body handler: clicks doubled on every
+      // interaction until the page stopped responding.
+      return '<div class="segmented" id="langToggle" role="group" aria-label="Language">' +
         I18n.available.map(function (lang) {
-          return '<button type="button" data-lang="' + lang.code + '" aria-pressed="' +
+          return '<button type="button" data-set-lang="' + lang.code + '" aria-pressed="' +
             (I18n.language() === lang.code) + '">' + esc(lang.label) + "</button>";
         }).join("") + "</div>";
     },
     onShow: function () {
-      document.querySelectorAll("[data-lang]").forEach(function (btn) {
+      var toggle = document.getElementById("langToggle");
+      if (!toggle) return;
+      toggle.querySelectorAll("[data-set-lang]").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          I18n.setLanguage(btn.dataset.lang);
-          document.querySelectorAll("[data-lang]").forEach(function (other) {
-            other.setAttribute("aria-pressed", String(other.dataset.lang === btn.dataset.lang));
+          I18n.setLanguage(btn.dataset.setLang);
+          toggle.querySelectorAll("[data-set-lang]").forEach(function (other) {
+            other.setAttribute("aria-pressed",
+                               String(other.dataset.setLang === btn.dataset.setLang));
           });
         });
       });
@@ -697,7 +707,7 @@
           fill.style.width = "0";
         }, 900);
         invalidate("analyze");
-        return poll();
+        return poll(true);
       })
       .catch(function (error) {
         clearInterval(ticker);
@@ -811,7 +821,7 @@
         .then(function (body) {
           UI.toast(body.note || "Dataset removed", "success");
           datasetSignature = "";
-          return poll();
+          return poll(true);
         })
         .catch(function (error) { UI.toast(error.message, "error"); });
     });
@@ -828,7 +838,7 @@
         ? "Queued — it will start when the current run finishes"
         : "Pipeline started", "success");
       showView("monitor");
-      return poll();
+      return poll(true);
     }).catch(function (error) { UI.toast(error.message, "error"); });
   }
 
@@ -885,17 +895,17 @@
     if (changed("monitor", structure)) {
       if (!shown.length) {
         host.innerHTML = UI.state("empty", t("monitor.noRuns"), t("monitor.noRunsBody"));
-        animateIn(host);
+        UI.animateIn(host);
         return;
       }
       host.innerHTML = shown.map(runMonitorCard).join("");
-      animateIn(host);
+      UI.animateIn(host);
 
       host.querySelectorAll("[data-cancel]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           btn.classList.add("loading");
           api("/api/runs/" + encodeURIComponent(btn.dataset.cancel), { method: "DELETE" })
-            .then(function () { UI.toast("Cancelling…", "warning"); return poll(); })
+            .then(function () { UI.toast("Cancelling…", "warning"); return poll(true); })
             .catch(function (e) { UI.toast(e.message, "error"); });
         });
       });
@@ -956,7 +966,7 @@
         // Only newly-completed nodes get the tick animation, and only once.
         if (cls.indexOf("done") > -1 && !node.dataset.marked) {
           node.dataset.marked = "1";
-          pulse(node.querySelector(".dag-dot"));
+          UI.pulse(node.querySelector(".dag-dot"));
         }
       }
       var time = node.querySelector(".dag-time");
@@ -1282,7 +1292,7 @@
         state.activeRun = null;
         resultsSignature = "";
         UI.toast("Results cleared", "success");
-        return poll();
+        return poll(true);
       }).catch(function (e) { UI.toast(e.message, "error"); });
     });
   }
@@ -1790,7 +1800,7 @@
         UI.toast(t("verify.saved"), "success");
         state.alerts = {};
         resultsSignature = "";
-        return poll();
+        return poll(true);
       }).catch(function (e) { UI.toast(e.message, "error"); });
     });
   }
@@ -1892,7 +1902,33 @@
      Polling, live events, offline handling
      ══════════════════════════════════════════════════════════════════════ */
 
-  function poll() {
+  /* Every caller of poll() goes through one gate.
+
+     There are six of them -- the timer, the SSE run event, the visibility
+     handler, the online handler, boot, and half a dozen user actions -- and
+     none of them knew about the others. A tab whose visibility flapped, which
+     happens on window focus changes and under browser throttling, fired an
+     unthrottled request pair each time. That exhausts Chrome's six-connection
+     budget for the origin, at which point every subsequent request fails
+     instantly with ERR_INSUFFICIENT_RESOURCES, the failures resolve fast enough
+     to trigger more polling, and the page locks up.
+
+     Two guards, both necessary: coalesce concurrent calls onto one in-flight
+     request, and refuse to start a new one within MIN_POLL_GAP of the last. */
+
+  var pollInFlight = null;
+  var lastPollAt = 0;
+  var MIN_POLL_GAP = 750;
+
+  function poll(force) {
+    if (pollInFlight) return pollInFlight;
+    if (!force && Date.now() - lastPollAt < MIN_POLL_GAP) return Promise.resolve();
+    lastPollAt = Date.now();
+    pollInFlight = fetchState();
+    return pollInFlight;
+  }
+
+  function fetchState() {
     return Promise.all([
       api("/api/datasets").catch(function () { return null; }),
       api("/api/runs").catch(function () { return null; })
@@ -1917,8 +1953,10 @@
 
       renderDatasets();
       scheduleRender();
-    });
+    }).then(release, release);
   }
+
+  function release() { pollInFlight = null; }
 
   /* Polling cadence follows the work, not the clock.
 
@@ -1948,19 +1986,38 @@
     }, delay);
   }
 
+  var visibilityTimer = null;
+
   document.addEventListener("visibilitychange", function () {
+    if (visibilityTimer) clearTimeout(visibilityTimer);
     if (document.hidden) {
       if (pollTimer) clearTimeout(pollTimer);
       pollTimer = null;
       return;
     }
-    // Coming back to a stale tab should feel instant, so catch up immediately
-    // rather than waiting out an interval.
-    poll().then(schedulePoll, schedulePoll);
-    pollHealth();
+    // Coming back to a stale tab should feel instant, so catch up rather than
+    // waiting out an interval -- but debounced, because focus changes can
+    // arrive in bursts and this handler used to fire a request pair per event.
+    visibilityTimer = setTimeout(function () {
+      poll().then(schedulePoll, schedulePoll);
+      pollHealth();
+    }, 200);
   });
 
+  var healthInFlight = null;
+
   function pollHealth() {
+    // Same gate as poll(): the visibility handler and the 30s timer can both
+    // reach this, and a health check is worthless if it queues behind itself.
+    if (healthInFlight) return healthInFlight;
+    healthInFlight = fetchHealth().then(
+      function () { healthInFlight = null; },
+      function () { healthInFlight = null; }
+    );
+    return healthInFlight;
+  }
+
+  function fetchHealth() {
     return api("/api/health").then(function (health) {
       state.health = health;
       var dot = document.getElementById("healthDot");

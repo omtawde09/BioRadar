@@ -82,6 +82,16 @@
       };
       document.addEventListener("fullscreenchange", map.__fsHandler);
       return container;
+    },
+
+    // Without this the document-level listener outlives the map it captures.
+    // Every rebuild would leak one handler and one whole Leaflet instance,
+    // and the leak is invisible until the tab runs out of resources.
+    onRemove: function (map) {
+      if (map.__fsHandler) {
+        document.removeEventListener("fullscreenchange", map.__fsHandler);
+        delete map.__fsHandler;
+      }
     }
   });
 

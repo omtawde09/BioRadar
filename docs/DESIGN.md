@@ -260,6 +260,38 @@ throughput and an ETA. After the bytes land, a four-step checklist covers the
 server-side work — integrity, primer detection, configuration — which previously
 left a disabled button and no explanation for several seconds.
 
+### The bug that made every click slower than the last
+
+`<body>` carries `data-lang` as the *active* language. The language switcher
+bound its click handler with `document.querySelectorAll("[data-lang]")` — which
+**also matches `<body>`**.
+
+Every click anywhere in the app therefore bubbled into that handler, which
+switched the language, which rebuilt the shell, which bound another handler to
+`<body>`. Clicks doubled on every interaction: 1, 2, 4, 8 … 256. Measured click
+latency went 3.4 ms → 1449 ms over twelve clicks, and then the tab stopped
+responding entirely.
+
+Nothing about it was visible in review — the selector is ordinary, the handler is
+three lines, and the symptom looks like "the app is just slow". The fix is a
+distinct attribute (`data-set-lang`) and a scoped root, and
+`ci/check_integration.sh` now fails the build if any document-wide `[data-*]`
+selector collides with an attribute on `<html>` or `<body>`.
+
+Two smaller multipliers found alongside it:
+
+- **Every caller of `poll()` went straight to the network.** Six of them, none
+  aware of the others — and `visibilitychange` fired one unthrottled request
+  pair per event. Focus changes arrive in bursts, which exhausted Chrome's
+  six-connection budget for the origin; after that every request failed
+  instantly with `ERR_INSUFFICIENT_RESOURCES`. All callers now pass through one
+  gate that coalesces concurrent calls and enforces a minimum gap, with a
+  `force` flag for the user actions that must not be throttled.
+- **Opening a view rebuilt it.** The navigation fix for a blank-panel bug had
+  invalidated the signature on every `showView`, which tore down and rebuilt the
+  Leaflet map — re-downloading every tile — each time the user clicked back to
+  Results. Invalidation belongs at mount, where the container is genuinely new.
+
 ### One rule learned the hard way
 
 **An animation may never be the only thing that produces a correct value.**

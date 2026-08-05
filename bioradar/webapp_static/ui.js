@@ -386,23 +386,36 @@
     if (!container || prefersReducedMotion()) return;
     var nodes = selector ? container.querySelectorAll(selector)
                          : container.children;
+    // Write-only. Reading a layout property here -- offsetWidth, to restart a
+    // CSS animation -- forces a full synchronous layout of the document, and
+    // doing it once per child turns a ten-item list into ten layouts of a page
+    // covered in box-shadows. That measured over a second on a single click.
+    //
+    // It is also unnecessary: these nodes were created by the innerHTML
+    // assignment immediately before this call, so their entrance animation
+    // plays on insertion with nothing to restart.
     for (var i = 0; i < nodes.length; i++) {
-      var node = nodes[i];
-      node.style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
-      node.classList.remove("entering");
-      // Reading offsetWidth forces the class removal to take effect before it
-      // is re-added; without it the browser coalesces both and never replays
-      // the animation on a re-render.
-      void node.offsetWidth;
-      node.classList.add("entering");
+      nodes[i].style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
+      nodes[i].classList.add("entering");
     }
   }
 
+  /**
+   * Flash a node that has just changed state.
+   *
+   * Unlike animateIn this genuinely has to re-trigger on an element that is
+   * already in the document, so it uses the Web Animations API rather than the
+   * remove-class/read-layout/add-class trick. Same result, no forced reflow.
+   */
   function pulse(node) {
-    if (!node || prefersReducedMotion()) return;
-    node.classList.remove("pulsing");
-    void node.offsetWidth;
-    node.classList.add("pulsing");
+    if (!node || prefersReducedMotion() || typeof node.animate !== "function") return;
+    node.animate(
+      [
+        { boxShadow: "0 0 0 0 " + cssVar("--alert-healthy") },
+        { boxShadow: "0 0 0 12px transparent" }
+      ],
+      { duration: 620, easing: "cubic-bezier(0, 0, .2, 1)" }
+    );
   }
 
   /**

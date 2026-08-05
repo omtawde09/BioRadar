@@ -333,6 +333,34 @@ if tokens != expected:
 print('5 shadow tokens')
 "
 
+check "no global selector matches the document root" $PYTHON -c "
+import re, sys
+from pathlib import Path
+# The bug this prevents cost the whole app. <body> carries data-lang as the
+# *active* language; the language switcher bound its click handler with
+# document.querySelectorAll('[data-lang]'), which also matched <body>. Every
+# click anywhere in the app then bubbled into that handler, which rebuilt the
+# shell, which bound another body handler -- so clicks doubled on every
+# interaction until the page stopped responding. Nothing about it was visible
+# in review.
+static = Path('bioradar/webapp_static')
+html = (static / 'index.html').read_text(encoding='utf-8')
+root_attrs = set()
+for tag in ('html', 'body'):
+    match = re.search(r'<' + tag + r'\b([^>]*)>', html)
+    if match:
+        root_attrs.update(re.findall(r'(data-[a-z-]+)\s*=', match.group(1)))
+offenders = []
+for name in ('app.js', 'ui.js', 'charts.js', 'mapkit.js', 'i18n.js', 'registry.js'):
+    source = (static / name).read_text(encoding='utf-8')
+    for attr in re.findall(r'document\.querySelectorAll\(\s*[\"\x27]\[(data-[a-z-]+)[\]=]', source):
+        if attr in root_attrs:
+            offenders.append(f'{name}: document-wide [{attr}] also matches <body>/<html>')
+if offenders:
+    sys.exit(chr(10).join(offenders))
+print(f'no document-wide selector collides with {sorted(root_attrs) or \"the root elements\"}')
+"
+
 check "animations cannot strand the UI on a wrong value" $PYTHON -c "
 import re, sys
 from pathlib import Path

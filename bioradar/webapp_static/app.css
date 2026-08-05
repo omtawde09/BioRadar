@@ -815,13 +815,21 @@ table.data em { font-style: italic; }
 .detail-panel.open { display: block; transform: translateX(0); }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
 
+/* visibility, not just opacity. An always-present full-viewport layer stays
+   composited even at opacity 0, and anything expensive on it -- a backdrop
+   filter especially -- then costs every frame for the entire life of the page,
+   whether or not a modal is open. */
 .backdrop {
   position: fixed; inset: 0; z-index: 45;
   background: rgba(8, 10, 18, .55);
-  opacity: 0; pointer-events: none;
-  transition: opacity var(--dur-card) var(--ease-out);
+  opacity: 0; pointer-events: none; visibility: hidden;
+  transition: opacity var(--dur-card) var(--ease-out),
+              visibility 0s linear var(--dur-card);
 }
-.backdrop.open { opacity: 1; pointer-events: auto; }
+.backdrop.open {
+  opacity: 1; pointer-events: auto; visibility: visible;
+  transition-delay: 0s;
+}
 
 .modal {
   position: fixed; z-index: 50; left: 50%; top: 50%;
@@ -974,13 +982,6 @@ details[open] > summary::before { transform: rotate(90deg); }
    the app bar and the sidebar around it. */
 #viewHost { contain: layout style; }
 
-/* A pulse for a step that has just completed. */
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--alert-healthy) 60%, transparent); }
-  100% { box-shadow: 0 0 0 12px transparent; }
-}
-.pulsing { animation: pulse-ring 620ms var(--ease-out); }
-
 /* Buttons: a scale nudge on press. Subtle enough to feel physical, small
    enough not to reflow anything around it. */
 .btn:not(:disabled):active { transform: scale(.97); }
@@ -1129,9 +1130,9 @@ details[open] > summary::before { transform: rotate(90deg); }
 .dropzone { transition: box-shadow var(--dur-card) var(--ease-out), transform var(--dur-card) var(--ease-out); }
 .dropzone.over { transform: scale(1.01); }
 
-/* Detail panel and modal already transition; the backdrop blurs behind them
-   so the layer separation reads without a heavier overlay. */
-.backdrop { backdrop-filter: blur(2px); }
+/* The blur is scoped to the open state. On the always-present backdrop it
+   forced the compositor to re-blur the whole page every frame, permanently. */
+.backdrop.open { backdrop-filter: blur(2px); }
 
 /* ── Accessibility overrides ───────────────────────────────────────────── */
 
