@@ -1,114 +1,66 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="BioRadar — eDNA biodiversity intelligence for Indian waters.">
 <title>BioRadar — eDNA Biodiversity Intelligence</title>
 <link rel="stylesheet" href="/static/leaflet.css">
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body data-lang="en">
 
-<header class="topbar">
+<a class="skip-link" href="#workspace">Skip to main content</a>
+
+<!-- The shell is empty markup. Everything inside it is rendered from the
+     feature registry, which is what makes adding a feature a one-line change
+     rather than an edit to this file. -->
+
+<header class="appbar">
   <div class="brand">
-    <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
-      <circle cx="16" cy="16" r="13" class="ring r1"/>
-      <circle cx="16" cy="16" r="8.5" class="ring r2"/>
-      <circle cx="16" cy="16" r="4" class="ring r3"/>
-      <circle cx="16" cy="16" r="2" class="dot"/>
-      <path d="M16 16 L27 9" class="sweep"/>
-    </svg>
+    <span class="brand-mark">
+      <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
+        <circle cx="16" cy="16" r="13" class="ring r1"/>
+        <circle cx="16" cy="16" r="8.5" class="ring r2"/>
+        <circle cx="16" cy="16" r="4" class="ring r3"/>
+        <circle cx="16" cy="16" r="2" class="dot"/>
+        <path d="M16 16 L27 9" class="sweep"/>
+      </svg>
+    </span>
     <div>
       <div class="brand-name">BioRadar</div>
       <div class="brand-sub">eDNA Biodiversity Intelligence</div>
     </div>
   </div>
-  <nav class="tabs" id="tabs">
-    <button class="tab active" data-view="analyze">Analyze</button>
-    <button class="tab" data-view="results">Results <span class="pill" id="runCount">0</span></button>
-  </nav>
+  <div class="spacer"></div>
+  <div class="appbar-actions" id="appbarActions"></div>
 </header>
 
-<!-- ─────────────────────────  ANALYZE  ───────────────────────── -->
-<main id="view-analyze" class="view active">
+<div class="shell">
+  <nav class="sidebar" id="sidebar" role="tablist" aria-label="Sections"></nav>
 
-  <section class="hero">
-    <h1>Upload your sequencing data</h1>
-    <p>Drop a folder of paired-end FASTQ files. BioRadar reads the primers,
-       read length and quality encoding straight from your data, configures the
-       pipeline for you, and returns a species report with a map.</p>
-  </section>
+  <main class="workspace" id="workspace">
+    <!-- The banner lives outside the view host because the view host is
+         rewritten wholesale when the registry renders. -->
+    <div class="offline-banner hidden" id="offlineBanner" role="status"></div>
+    <div id="viewHost" class="stack" style="gap:24px"></div>
+  </main>
 
-  <section class="panel">
-    <div id="dropzone" class="dropzone">
-      <svg viewBox="0 0 24 24" class="dz-icon" aria-hidden="true">
-        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
-              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-      </svg>
-      <div class="dz-title">Drop your dataset folder here</div>
-      <div class="dz-sub">
-        <button class="btn primary" id="folderBtn" type="button">Select folder</button>
-        <button class="btn ghost" id="filesBtn" type="button">Select files</button>
-      </div>
-      <div class="dz-note">Paired-end FASTQ — an R1 and an R2 file for every sample</div>
-      <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
-      <input type="file" id="fileInput" multiple accept=".gz,.fastq,.fq" hidden>
-    </div>
+  <aside class="detail-panel" id="detailPanel" aria-label="Details"></aside>
+</div>
 
-    <div id="fileList" class="filelist"></div>
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Sections"></nav>
 
-    <div id="uploadPanel" class="config hidden">
-      <div class="config-grid">
-        <label>Dataset name
-          <input id="cfgName" type="text" placeholder="e.g. Mandovi estuary survey">
-        </label>
-        <label>Location <span class="opt">optional</span>
-          <input id="cfgRegion" type="text" placeholder="e.g. Goa, India">
-        </label>
-      </div>
-      <details class="advanced">
-        <summary>Advanced — override auto-detection</summary>
-        <div class="config-grid" style="margin-top:12px">
-          <label>Forward primer
-            <input id="cfgF" type="text" spellcheck="false" placeholder="auto-detected">
-          </label>
-          <label>Reverse primer
-            <input id="cfgR" type="text" spellcheck="false" placeholder="auto-detected">
-          </label>
-          <label>Truncate forward
-            <input id="cfgTF" type="number" min="0" placeholder="auto">
-          </label>
-          <label>Truncate reverse
-            <input id="cfgTR" type="number" min="0" placeholder="auto">
-          </label>
-        </div>
-      </details>
-      <div class="config-actions">
-        <button class="btn primary" id="uploadBtn">Upload &amp; analyze</button>
-        <button class="btn ghost" id="clearBtn">Clear</button>
-        <span id="uploadStatus" class="hint"></span>
-      </div>
-      <div class="progress hidden" id="uploadBar"><div></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="datasetsPanel">
-    <div class="panel-head">
-      <h2>Your datasets</h2>
-      <span class="hint">Checked automatically before they can run</span>
-    </div>
-    <div id="datasets" class="grid"><div class="loading">Loading…</div></div>
-  </section>
-</main>
-
-<!-- ─────────────────────────  RESULTS  ───────────────────────── -->
-<main id="view-results" class="view">
-  <div id="runs" class="runs"><div class="loading">No analyses yet.</div></div>
-</main>
-
-<div id="toast" class="toast"></div>
+<div class="backdrop" id="backdrop"></div>
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
 <script src="/static/leaflet.js"></script>
+<script src="/static/registry.js"></script>
+<script src="/static/i18n.js"></script>
+<script src="/static/ui.js"></script>
+<script src="/static/charts.js"></script>
+<script src="/static/mapkit.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

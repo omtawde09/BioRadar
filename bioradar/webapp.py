@@ -1,45 +1,64 @@
-"""BioRadar control panel -- one container, one page, every dataset.
+"""BioRadar dashboard -- one container, one page, every dataset.
 
 The CLI is fine for development but wrong for a demo: seven commands, each with
 primers and truncation lengths that differ per dataset, is not something you want
-to type in front of judges. This serves a single page that lists every known
-dataset with its pre-flight status, runs one on a click, streams progress, and
-shows the resulting species report.
+to type in front of judges. This serves a single page that takes an upload,
+pre-flights it, runs the pipeline with live progress, and shows the resulting
+species report on a map.
 
 It runs *inside* the pipeline image, so `snakemake` is already on PATH and the
 pipeline executes as a local subprocess -- no Docker-in-Docker, no socket
 mounting, no privileged container.
 
-Deliberately stdlib-only. The pipeline image ships a QIIME2 conda environment;
-adding FastAPI to it would mean rebuilding an 11.7 GB image, and a control panel
-is not worth that.
+Deliberately stdlib-only. The pipeline image ships a QIIME 2 conda environment;
+adding FastAPI to it would mean rebuilding an 11.7 GB image, and a dashboard is
+not worth that.
 
     docker compose up app        ->  http://localhost:8080
-
-Not to be confused with Ishwar's WebGIS dashboard: this is an operations console
-for running the pipeline, not the biodiversity map.
 """
 
 from __future__ import annotations
 
 import json
 import mimetypes
+import queue
 import threading
+import time
 import traceback
 import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qs, urlparse
+
+from bioradar import exports, jobs, notify, obs, verification, watchlist
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = Path(__file__).resolve().parent / "webapp_static"
 DATASETS_FILE = REPO_ROOT / "data" / "datasets.json"
 
-# run_id -> state
-_RUNS: dict[str, dict[str, Any]] = {}
-_LOCK = threading.Lock()
+obs.configure()
+log = obs.logger("webapp")
+
+# One worker: the pipeline is invoked with every available core, so two
+# concurrent runs finish no sooner and will be OOM-killed on a 7 GB container.
+# Queueing rather than refusing is what the analysis actually asked for.
+QUEUE = jobs.JobQueue()
+
+# Runs are killed after an hour. A pipeline that has not finished by then has
+# either stalled or been handed a dataset this machine cannot process, and in
+# both cases a hung job that never releases the queue is worse than a clear
+# failure.
+SOFT_TIMEOUT = 55 * 60
+HARD_TIMEOUT = 60 * 60
+
+_ANALYSIS_CACHE: Dict[str, Dict[str, Any]] = {}
+_ANALYSIS_LOCK = threading.Lock()
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 # --------------------------------------------------------------------------
@@ -47,18 +66,18 @@ _LOCK = threading.Lock()
 # --------------------------------------------------------------------------
 
 
-def load_datasets() -> list[dict[str, Any]]:
+def load_datasets() -> List[Dict[str, Any]]:
     if not DATASETS_FILE.is_file():
         return []
     payload = json.loads(DATASETS_FILE.read_text(encoding="utf-8"))
     return payload.get("datasets", [])
 
 
-# Pre-flight decompresses and scans thousands of reads from every FASTQ, which
-# costs tens of seconds on a multi-sample dataset. The dataset list is polled
-# every few seconds, so without a cache the server spends all its time redoing
-# identical work and everything else -- uploads included -- crawls behind it.
-_DESCRIBE_CACHE: "dict[str, tuple[tuple, dict[str, Any]]]" = {}
+# Pre-flight decompresses and scans every FASTQ, which costs tens of seconds on
+# a multi-sample dataset. The dataset list is polled every few seconds, so
+# without a cache the server spends all its time redoing identical work and
+# everything else -- uploads included -- crawls behind it.
+_DESCRIBE_CACHE: Dict[str, Any] = {}
 _DESCRIBE_LOCK = threading.Lock()
 
 
@@ -76,12 +95,8 @@ def _fingerprint(fastq_dir: Path) -> tuple:
     return tuple(entries)
 
 
-def describe_dataset(entry: dict[str, Any], *, refresh: bool = False) -> dict[str, Any]:
-    """Add live state: is the data present, does it pass pre-flight.
-
-    Cached against the fingerprint of the FASTQ directory. Re-running pre-flight
-    on unchanged files produces the same answer every time.
-    """
+def describe_dataset(entry: Dict[str, Any], *, refresh: bool = False) -> Dict[str, Any]:
+    """Add live state: is the data present, does it pass pre-flight."""
     cache_key = entry["id"]
     signature = (_fingerprint(REPO_ROOT / entry["fastq_dir"]), entry.get("denoiser"))
     if not refresh:
@@ -96,7 +111,7 @@ def describe_dataset(entry: dict[str, Any], *, refresh: bool = False) -> dict[st
     return described
 
 
-def _describe_dataset_uncached(entry: dict[str, Any]) -> dict[str, Any]:
+def _describe_dataset_uncached(entry: Dict[str, Any]) -> Dict[str, Any]:
     described = dict(entry)
     fastq_dir = REPO_ROOT / entry["fastq_dir"]
     described["present"] = fastq_dir.is_dir() and any(fastq_dir.glob("*.fastq.gz"))
@@ -156,12 +171,13 @@ def _describe_dataset_uncached(entry: dict[str, Any]) -> dict[str, Any]:
         elif "status" not in described:
             described["status"] = "ready"
             described["status_detail"] = (
-                f"{described['sample_count']} sample(s), pre-flight clean"
+                "{n} sample(s), pre-flight clean".format(n=described["sample_count"])
             )
     except Exception as exc:  # noqa: BLE001
+        obs.capture("dataset.preflight_failed", exc, dataset=entry.get("id"))
         described["findings"] = []
         described["status"] = "error"
-        described["status_detail"] = f"{type(exc).__name__}: {exc}"
+        described["status_detail"] = "{t}: {e}".format(t=type(exc).__name__, e=exc)
 
     classifier = entry.get("classifier")
     if classifier:
@@ -169,7 +185,7 @@ def _describe_dataset_uncached(entry: dict[str, Any]) -> dict[str, Any]:
         described["classifier_present"] = path.is_file()
         if not path.is_file() and described.get("status") == "ready":
             described["status"] = "blocked"
-            described["status_detail"] = f"Classifier {classifier} not built yet"
+            described["status_detail"] = "Classifier {c} not built yet".format(c=classifier)
     else:
         described["classifier_present"] = False
     return described
@@ -195,137 +211,287 @@ def _remove_registry_entry(dataset_id: str) -> bool:
         return False
 
     payload["datasets"] = remaining
-    DATASETS_FILE.write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
-    )
+    DATASETS_FILE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return True
+
+
+# --------------------------------------------------------------------------
+# Live event stream
+# --------------------------------------------------------------------------
+
+_streams: List["queue.Queue"] = []
+_stream_lock = threading.Lock()
+
+
+def publish(event_type: str, payload: Dict[str, Any]) -> None:
+    """Push an event to every connected dashboard.
+
+    Non-blocking on purpose: a browser tab that has stopped reading must not be
+    able to stall the pipeline thread that is emitting progress.
+    """
+    with _stream_lock:
+        listeners = list(_streams)
+    for stream in listeners:
+        try:
+            stream.put_nowait((event_type, payload))
+        except queue.Full:
+            pass
+
+
+notify.subscribe(lambda event: publish("alert", event))
 
 
 # --------------------------------------------------------------------------
 # Runs
 # --------------------------------------------------------------------------
 
+# Snakemake announces each rule as it starts; the monitor turns them into DAG
+# nodes. Keeping the last few log lines lets the UI show what the pipeline is
+# actually saying without streaming megabytes of QIIME 2 chatter.
+_LOG_TAIL = 40
 
-def _run_pipeline(run_id: str, entry: dict[str, Any]) -> None:
-    """Execute one pipeline run in a worker thread."""
+
+def _idempotency_key(entry: Dict[str, Any]) -> str:
+    """Same dataset, same files, same parameters -> the same key.
+
+    Double-clicking Analyze should not burn twenty minutes of compute twice.
+    The fingerprint is part of the key so that re-uploading changed files is
+    correctly treated as different work.
+    """
+    import hashlib
+
+    material = json.dumps(
+        {
+            "dataset": entry["id"],
+            "files": [list(item) for item in _fingerprint(REPO_ROOT / entry["fastq_dir"])],
+            "classifier": entry.get("classifier"),
+            "fprimer": entry.get("fprimer"),
+            "rprimer": entry.get("rprimer"),
+            "trunc_len_f": entry.get("trunc_len_f"),
+            "trunc_len_r": entry.get("trunc_len_r"),
+            "denoiser": entry.get("denoiser"),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
+def _pipeline_job(job: "jobs.Job") -> Dict[str, Any]:
+    """Run one pipeline, in the queue's worker thread."""
     from bioradar.pipeline_runner import PipelineRunner, discover_pairs
 
-    def record(**fields: Any) -> None:
-        with _LOCK:
-            _RUNS[run_id].update(fields)
+    entry = job.payload["_entry"]
+    stages: List[str] = []
+    tail: List[str] = []
 
-    def on_progress(event: dict[str, Any]) -> None:
-        with _LOCK:
-            state = _RUNS[run_id]
-            state["events"].append(event)
-            if event.get("percent") is not None:
-                state["percent"] = event["percent"]
-            if event.get("label"):
-                state["stage"] = event["label"]
+    def on_progress(event: Dict[str, Any]) -> None:
+        # Cancellation and the soft deadline are both checked here, at a rule
+        # boundary, so a stopped run does not die halfway through writing an
+        # artifact.
+        job.check_cancelled()
+        job.check_deadline()
 
-    try:
-        fastq_dir = REPO_ROOT / entry["fastq_dir"]
-        runner = PipelineRunner(mode="local", runs_dir=REPO_ROOT / "runs")
+        if event.get("stage") and event["stage"] not in stages:
+            stages.append(event["stage"])
+        line = event.get("line") or event.get("label")
+        if line:
+            tail.append(str(line)[:300])
+            del tail[:-_LOG_TAIL]
+        job.progress(event)
+        publish("progress", {
+            "run_id": job.job_id,
+            "percent": job.percent,
+            "stage": job.stage,
+            "stages": list(stages),
+            "recent_log": list(tail),
+        })
 
-        classifier = entry.get("classifier")
-        params: dict[str, Any] = {}
-        if classifier:
-            params["classifier"] = str(
-                REPO_ROOT / "bioradar-pipeline" / "database" / "qiime2-qza" / classifier
-            )
-        for key, field in (
-            ("fprimer", "fprimer"),
-            ("rprimer", "rprimer"),
-            ("tlf", "trunc_len_f"),
-            ("tlr", "trunc_len_r"),
-            ("denoiser", "denoiser"),
-        ):
-            if entry.get(field) is not None:
-                params[key] = entry[field]
+    fastq_dir = REPO_ROOT / entry["fastq_dir"]
+    runner = PipelineRunner(mode="local", runs_dir=REPO_ROOT / "runs")
 
-        result = runner.run(
-            discover_pairs(fastq_dir),
-            run_id=run_id,
-            sample_id=entry["id"].upper(),
-            params=params,
-            progress=on_progress,
-            commit_chain=False,
-            # vsearch exists precisely to run data that fails the quality check,
-            # so re-blocking on it here would defeat the point.
-            skip_preflight=entry.get("denoiser") == "vsearch",
+    params: Dict[str, Any] = {}
+    if entry.get("classifier"):
+        params["classifier"] = str(
+            REPO_ROOT / "bioradar-pipeline" / "database" / "qiime2-qza" / entry["classifier"]
         )
-        record(
-            status="completed",
-            percent=100,
-            stage="Done",
-            results_dir=str(result.results_dir),
-            artifact_hash=result.artifact_hash,
-            finished_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        )
-        _build_report(run_id, entry, Path(result.results_dir))
-    except Exception as exc:  # noqa: BLE001
-        record(
-            status="failed",
-            error=f"{type(exc).__name__}: {exc}",
-            traceback=traceback.format_exc()[-4000:],
-            finished_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        )
+    for key, field in (
+        ("fprimer", "fprimer"), ("rprimer", "rprimer"),
+        ("tlf", "trunc_len_f"), ("tlr", "trunc_len_r"),
+        ("denoiser", "denoiser"),
+    ):
+        if entry.get(field) is not None:
+            params[key] = entry[field]
+
+    result = runner.run(
+        discover_pairs(fastq_dir),
+        run_id=job.job_id,
+        sample_id=entry["id"].upper(),
+        params=params,
+        progress=on_progress,
+        commit_chain=False,
+        # vsearch exists precisely to run data that fails the quality check, so
+        # re-blocking on it here would defeat the point.
+        skip_preflight=entry.get("denoiser") == "vsearch",
+    )
+
+    outcome: Dict[str, Any] = {
+        "results_dir": str(result.results_dir),
+        "artifact_hash": result.artifact_hash,
+        "stages": stages,
+        "recent_log": tail,
+    }
+    outcome.update(_build_report(job.job_id, entry, Path(result.results_dir)))
+    return outcome
 
 
-def _build_report(run_id: str, entry: dict[str, Any], results_dir: Path) -> None:
-    """Generate the biodiversity report and cache its summary for the UI."""
-    try:
-        from bioradar.report import analyse, load_csv, render_markdown
+def _build_report(run_id: str, entry: Dict[str, Any], results_dir: Path) -> Dict[str, Any]:
+    """Generate the biodiversity report and cache the analysis for the UI."""
+    from bioradar.report import analyse, load_csv, render_markdown
 
-        taxonomy = results_dir / "taxonomy_normalized.csv"
-        if not taxonomy.is_file():
+    taxonomy = results_dir / "taxonomy_normalized.csv"
+    if not taxonomy.is_file():
+        return {"report_error": "the pipeline produced no taxonomy_normalized.csv"}
+
+    detections = load_csv(taxonomy)
+    samples = None
+    if entry.get("samples_csv"):
+        candidate = REPO_ROOT / entry["samples_csv"]
+        if candidate.is_file():
+            samples = load_csv(candidate)
+
+    result = analyse(detections, samples)
+
+    # Field verification annotates how a detection is *presented*; it never
+    # rewrites the classifier's confidence, which is a property of the sequence
+    # and must stay reproducible for the chain-of-custody hash to mean anything.
+    site_lookup = {s["name"]: sorted(s.get("sites", ())) for s in result["species"]}
+    result["species"] = verification.annotate(result["species"], site_lookup)
+
+    markdown = render_markdown(
+        result, entry["name"],
+        {"Dataset": entry.get("source", ""), "Marker": entry.get("marker", "")},
+    )
+    report_path = REPO_ROOT / "reports" / "{r}.md".format(r=run_id)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(markdown, encoding="utf-8")
+
+    with _ANALYSIS_LOCK:
+        _ANALYSIS_CACHE[run_id] = {
+            "analysis": result,
+            "detections": detections,
+            "samples_meta": samples or [],
+            "entry": entry,
+            "markdown": markdown,
+        }
+
+    species = [s for s in result["species"] if s["rank"] == "species"]
+    named = [s for s in species if not s.get("placeholder")]
+
+    return {
+        "report": {
+            "path": str(report_path),
+            "named_species": len(named),
+            "placeholders": len(species) - len(named),
+            "phyla": len(result["phyla"]),
+            "phyla_breakdown": [
+                {"name": name, "reads": reads} for name, reads in result["phyla"][:10]
+            ],
+            "samples": len(result["samples"]),
+            "sites": len(result["site_species"]),
+            "detections": result["detections"],
+            "top_species": [
+                {
+                    "name": s["name"],
+                    "phylum": s["phylum"],
+                    "reads": s["reads"],
+                    "confidence": round(s["max_confidence"], 3),
+                    "placeholder": bool(s.get("placeholder")),
+                    "verification": s.get("verification", {}),
+                }
+                for s in species[:40]
+            ],
+        },
+        "export_stats": exports.archive_stats(detections),
+    }
+
+
+def start_run(dataset_id: str) -> Dict[str, Any]:
+    entry = next((d for d in all_datasets() if d["id"] == dataset_id), None)
+    if entry is None:
+        raise KeyError("unknown dataset {d!r}".format(d=dataset_id))
+
+    run_id = "{d}-{ts:%Y%m%dT%H%M%S}-{u}".format(
+        d=dataset_id, ts=datetime.now(timezone.utc), u=uuid.uuid4().hex[:6]
+    )
+
+    job = QUEUE.submit(
+        "pipeline",
+        {"run_id": run_id, "dataset_id": dataset_id, "dataset_name": entry["name"],
+         "_entry": entry},
+        _pipeline_job,
+        job_id=run_id,
+        idempotency_key=_idempotency_key(entry),
+        # One retry: transient failures here are memory pressure and filesystem
+        # contention, which a second attempt on an idle machine often clears.
+        # More than one just wastes twenty minutes twice over.
+        max_retries=1,
+        soft_timeout=SOFT_TIMEOUT,
+        hard_timeout=HARD_TIMEOUT,
+    )
+    _watch_completion(job)
+    publish("run", {"run_id": job.job_id, "status": job.status})
+    return run_summary(job)
+
+
+_watched: set = set()
+_watch_lock = threading.Lock()
+
+
+def _watch_completion(job: "jobs.Job") -> None:
+    """Fire notifications once a job leaves the queue, without blocking it."""
+    with _watch_lock:
+        if job.job_id in _watched:
             return
-        detections = load_csv(taxonomy)
-        samples = None
-        if entry.get("samples_csv"):
-            candidate = REPO_ROOT / entry["samples_csv"]
-            if candidate.is_file():
-                samples = load_csv(candidate)
+        _watched.add(job.job_id)
 
-        result = analyse(detections, samples)
-        markdown = render_markdown(
-            result,
-            entry["name"],
-            {"Dataset": entry.get("source", ""), "Marker": entry.get("marker", "")},
-        )
-        report_path = REPO_ROOT / "reports" / f"{run_id}.md"
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(markdown, encoding="utf-8")
+    def wait() -> None:
+        while job.status not in jobs.TERMINAL:
+            time.sleep(1.0)
+        summary = run_summary(job)
+        publish("run", {"run_id": job.job_id, "status": job.status})
+        try:
+            if job.status == jobs.COMPLETED:
+                notify.run_finished(summary, run_alerts(job.job_id))
+            elif job.status in {jobs.FAILED, jobs.TIMED_OUT}:
+                notify.run_failed(summary)
+        except Exception as exc:  # noqa: BLE001
+            obs.capture("notify.dispatch_failed", exc, run_id=job.job_id)
 
-        species = [s for s in result["species"] if s["rank"] == "species"]
-        named = [s for s in species if not s.get("placeholder")]
-        with _LOCK:
-            _RUNS[run_id]["report"] = {
-                "path": str(report_path),
-                "markdown": markdown,
-                "named_species": len(named),
-                "placeholders": len(species) - len(named),
-                "phyla": len(result["phyla"]),
-                "phyla_breakdown": [
-                    {"name": name, "reads": reads}
-                    for name, reads in result["phyla"][:10]
-                ],
-                "samples": len(result["samples"]),
-                "detections": result["detections"],
-                "top_species": [
-                    {
-                        "name": s["name"],
-                        "phylum": s["phylum"],
-                        "reads": s["reads"],
-                        "confidence": round(s["max_confidence"], 3),
-                        "placeholder": bool(s.get("placeholder")),
-                    }
-                    for s in species[:25]
-                ],
-            }
-    except Exception as exc:  # noqa: BLE001
-        with _LOCK:
-            _RUNS[run_id]["report_error"] = f"{type(exc).__name__}: {exc}"
+    threading.Thread(target=wait, name="watch-" + job.job_id, daemon=True).start()
+
+
+def run_summary(job: "jobs.Job", include_events: bool = False) -> Dict[str, Any]:
+    """Everything the UI needs, without the internals it must not see."""
+    summary = job.summary(include_events=include_events)
+    summary.pop("_entry", None)
+    summary.pop("traceback", None)
+    summary["run_id"] = job.job_id
+    summary["started_at"] = job.started_at or job.queued_at
+    if job.status == jobs.QUEUED:
+        summary["queue_position"] = QUEUE.queue_position(job)
+    return summary
+
+
+def run_alerts(run_id: str) -> Dict[str, Any]:
+    """Screen a completed run against the watchlist."""
+    with _ANALYSIS_LOCK:
+        cached = _ANALYSIS_CACHE.get(run_id)
+    if not cached:
+        return {"alerts": [], "summary": {"high": 0, "medium": 0, "info": 0, "total": 0},
+                "watchlist_size": 0}
+    result = watchlist.screen(cached["analysis"]["species"])
+    result["verification_stats"] = verification.stats()
+    return result
 
 
 def recover_runs() -> int:
@@ -343,88 +509,6 @@ def recover_runs() -> int:
     return 0
 
 
-def _unused_recover_runs() -> int:
-    runs_dir = REPO_ROOT / "runs"
-    if not runs_dir.is_dir():
-        return 0
-
-    known = {d["id"]: d for d in all_datasets()}
-    recovered = 0
-    for taxonomy in sorted(runs_dir.glob("*/final_results/taxonomy_normalized.csv")):
-        run_id = taxonomy.parent.parent.name
-        if run_id.startswith("_"):
-            continue
-        with _LOCK:
-            if run_id in _RUNS:
-                continue
-
-        dataset_id = next((k for k in known if run_id.startswith(k)), None)
-        entry = known.get(dataset_id or "", {})
-        state: dict[str, Any] = {
-            "run_id": run_id,
-            "dataset_id": dataset_id or "unknown",
-            "dataset_name": entry.get("name", run_id),
-            "status": "completed",
-            "percent": 100,
-            "stage": "Done (recovered from disk)",
-            "events": [],
-            "started_at": datetime.fromtimestamp(
-                taxonomy.stat().st_mtime, tz=timezone.utc
-            ).isoformat(timespec="seconds"),
-            "results_dir": str(taxonomy.parent),
-        }
-        with _LOCK:
-            _RUNS[run_id] = state
-        # Build the report even for runs that predate the dataset registry --
-        # it only needs the taxonomy CSV, and a recovered run showing no species
-        # looks like a failure rather than a naming mismatch.
-        _build_report(run_id, entry or {"name": run_id}, taxonomy.parent)
-        recovered += 1
-    return recovered
-
-
-def start_run(dataset_id: str) -> dict[str, Any]:
-    entry = next((d for d in all_datasets() if d["id"] == dataset_id), None)
-    if entry is None:
-        raise KeyError(f"unknown dataset {dataset_id!r}")
-
-    with _LOCK:
-        active = [r for r in _RUNS.values() if r["status"] == "running"]
-        if active:
-            raise RuntimeError(
-                f"a run is already in progress ({active[0]['run_id']}). "
-                "The pipeline uses all available cores; wait for it to finish."
-            )
-
-    run_id = f"{dataset_id}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:6]}"
-    state = {
-        "run_id": run_id,
-        "dataset_id": dataset_id,
-        "dataset_name": entry["name"],
-        "status": "running",
-        "percent": 0,
-        "stage": "Starting",
-        "events": [],
-        "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    with _LOCK:
-        _RUNS[run_id] = state
-
-    threading.Thread(target=_run_pipeline, args=(run_id, entry), daemon=True).start()
-    return state
-
-
-def run_summary(state: dict[str, Any]) -> dict[str, Any]:
-    """Everything the UI needs, without the full event log."""
-    summary = {k: v for k, v in state.items() if k not in {"events", "report"}}
-    summary["event_count"] = len(state.get("events", []))
-    if "report" in state:
-        report = dict(state["report"])
-        report.pop("markdown", None)
-        summary["report"] = report
-    return summary
-
-
 # --------------------------------------------------------------------------
 # Uploads
 # --------------------------------------------------------------------------
@@ -435,8 +519,12 @@ UPLOAD_ROOT = REPO_ROOT / "data" / "uploads"
 # Illumina convention. Accept the common shapes and normalise.
 _FASTQ_SUFFIXES = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
 
+# A single upload larger than this is either not a FASTQ or will not finish on
+# the hardware this is demonstrated on. Refusing early beats filling the disk.
+MAX_UPLOAD_BYTES = 8 * 1024 ** 3
 
-def normalise_upload_name(filename: str) -> "tuple[str, int] | None":
+
+def normalise_upload_name(filename: str) -> Optional[tuple]:
     """Map an uploaded filename to (sample_id, mate) or None if unusable.
 
     Handles the three layouts people actually have: Illumina
@@ -478,13 +566,13 @@ def normalise_upload_name(filename: str) -> "tuple[str, int] | None":
     return (sample or "SAMPLE", mate)
 
 
-# Column names that mean "this CSV carries coordinates". Accepting several
-# spellings because people export metadata from all sorts of places.
+# Column names that mean "this CSV carries coordinates". Several spellings,
+# because people export metadata from all sorts of places.
 _LAT_COLUMNS = {"latitude", "lat", "decimallatitude", "decimal_latitude"}
 _LON_COLUMNS = {"longitude", "lon", "lng", "decimallongitude", "decimal_longitude"}
 
 
-def find_metadata_csv(directory: Path) -> "Path | None":
+def find_metadata_csv(directory: Path) -> Optional[Path]:
     """Find an uploaded CSV that has a sample id plus latitude/longitude.
 
     The coordinates a map needs are never inside a FASTQ -- they live in a sample
@@ -494,7 +582,7 @@ def find_metadata_csv(directory: Path) -> "Path | None":
     import csv as _csv
 
     for path in sorted(directory.glob("*.csv")) + sorted(directory.glob("*.tsv")):
-        delimiter = "	" if path.suffix == ".tsv" else ","
+        delimiter = "\t" if path.suffix == ".tsv" else ","
         try:
             with path.open(newline="", encoding="utf-8", errors="replace") as handle:
                 header = next(_csv.reader(handle, delimiter=delimiter), [])
@@ -507,15 +595,15 @@ def find_metadata_csv(directory: Path) -> "Path | None":
     return None
 
 
-def normalise_metadata(path: Path) -> "list[dict[str, str]]":
+def normalise_metadata(path: Path) -> List[Dict[str, str]]:
     """Read a sample sheet into the column names the rest of the app expects."""
     import csv as _csv
 
-    delimiter = "	" if path.suffix == ".tsv" else ","
-    rows: list[dict[str, str]] = []
+    delimiter = "\t" if path.suffix == ".tsv" else ","
+    rows: List[Dict[str, str]] = []
     with path.open(newline="", encoding="utf-8", errors="replace") as handle:
         for raw in _csv.DictReader(handle, delimiter=delimiter):
-            mapped: dict[str, str] = {}
+            mapped: Dict[str, str] = {}
             for key, value in raw.items():
                 if key is None:
                     continue
@@ -540,7 +628,7 @@ def upload_dir(batch: str) -> Path:
     return UPLOAD_ROOT / safe
 
 
-def register_upload(batch: str, config: "dict[str, Any]") -> dict[str, Any]:
+def register_upload(batch: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """Turn a finished upload into a dataset entry the rest of the app understands.
 
     Anything the user did not specify is inferred from the reads themselves --
@@ -552,7 +640,7 @@ def register_upload(batch: str, config: "dict[str, Any]") -> dict[str, Any]:
     from bioradar.pipeline_runner import discover_pairs
 
     directory = upload_dir(batch)
-    detected: dict[str, Any] = {}
+    detected: Dict[str, Any] = {}
     denoiser = config.get("denoiser")
 
     try:
@@ -568,7 +656,8 @@ def register_upload(batch: str, config: "dict[str, Any]") -> dict[str, Any]:
         if not denoiser:
             denoiser = preflight.recommend_denoiser(pairs)
     except Exception as exc:  # noqa: BLE001
-        detected = {"detection_error": f"{type(exc).__name__}: {exc}"}
+        obs.capture("upload.detect_failed", exc, batch=batch)
+        detected = {"detection_error": "{t}: {e}".format(t=type(exc).__name__, e=exc)}
         denoiser = denoiser or "dada2"
 
     def pick(key: str, fallback: Any = None) -> Any:
@@ -579,8 +668,8 @@ def register_upload(batch: str, config: "dict[str, Any]") -> dict[str, Any]:
 
     metadata = find_metadata_csv(directory)
     entry = {
-        "id": f"upload-{batch}",
-        "name": config.get("name") or f"Uploaded dataset {batch}",
+        "id": "upload-{b}".format(b=batch),
+        "name": config.get("name") or "Uploaded dataset {b}".format(b=batch),
         "region": config.get("region") or "Uploaded from your computer",
         "fastq_dir": str(directory.relative_to(REPO_ROOT)).replace("\\", "/"),
         "marker": pick("marker", "unknown"),
@@ -600,10 +689,12 @@ def register_upload(batch: str, config: "dict[str, Any]") -> dict[str, Any]:
         entry["metadata_file"] = metadata.name
     if entry.get("classifier") is None:
         entry["known_issue"] = (
-            f"No classifier available for {entry['marker']}. Build one with "
-            "`python -m bioradar.train_classifier`."
+            "No classifier available for {m}. Build one with "
+            "`python -m bioradar.train_classifier`.".format(m=entry["marker"])
         )
     (directory / "_dataset.json").write_text(json.dumps(entry, indent=2), encoding="utf-8")
+    log.info("upload.registered", dataset=entry["id"], marker=entry["marker"],
+             denoiser=denoiser)
     return entry
 
 
@@ -624,7 +715,7 @@ def _swap_mates(directory: Path) -> None:
         temporary.rename(r2)
 
 
-def uploaded_datasets() -> "list[dict[str, Any]]":
+def uploaded_datasets() -> List[Dict[str, Any]]:
     if not UPLOAD_ROOT.is_dir():
         return []
     entries = []
@@ -636,37 +727,27 @@ def uploaded_datasets() -> "list[dict[str, Any]]":
     return entries
 
 
+def all_datasets() -> List[Dict[str, Any]]:
+    return load_datasets() + uploaded_datasets()
+
+
 # --------------------------------------------------------------------------
 # Map data
 # --------------------------------------------------------------------------
 
 
-def map_points(run_id: str) -> "list[dict[str, Any]]":
+def map_points(run_id: str) -> List[Dict[str, Any]]:
     """Per-site coordinates plus what was found there, for the map."""
-    with _LOCK:
-        state = _RUNS.get(run_id)
-    if not state or not state.get("results_dir"):
+    with _ANALYSIS_LOCK:
+        cached = _ANALYSIS_CACHE.get(run_id)
+    if not cached or not cached["samples_meta"]:
         return []
 
-    taxonomy = Path(state["results_dir"]) / "taxonomy_normalized.csv"
-    if not taxonomy.is_file():
-        return []
-
-    entry = next(
-        (d for d in all_datasets() if d["id"] == state.get("dataset_id")), {}
-    )
-    samples_csv = entry.get("samples_csv")
-    if not samples_csv or not (REPO_ROOT / samples_csv).is_file():
-        return []
-
-    from bioradar.report import analyse, load_csv
-
-    meta = normalise_metadata(REPO_ROOT / samples_csv)
-    result = analyse(load_csv(taxonomy), meta)
+    result = cached["analysis"]
     by_sample = {s["sample_id"]: s for s in result["samples"]}
 
     points = []
-    for row in meta:
+    for row in cached["samples_meta"]:
         summary = by_sample.get(row["sample_id"])
         if not summary:
             continue
@@ -675,30 +756,63 @@ def map_points(run_id: str) -> "list[dict[str, Any]]":
             longitude = float(row.get("longitude") or "")
         except ValueError:
             continue
+        # A coordinate outside the globe is a data-entry error, and plotting it
+        # sends the map to the middle of the ocean with no explanation.
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            log.warning("map.bad_coordinate", sample=row["sample_id"],
+                        latitude=latitude, longitude=longitude)
+            continue
 
         taxa = [
             {"name": s["name"], "reads": s["reads"], "phylum": s["phylum"]}
             for s in result["species"]
             if row["sample_id"] in s["samples"]
         ][:6]
-        points.append(
-            {
-                "sample_id": row["sample_id"],
-                "site_id": summary["site_id"],
-                "latitude": latitude,
-                "longitude": longitude,
-                "collected_at": row.get("collected_at", ""),
-                "total_reads": summary["total_reads"],
-                "species_count": summary["species_count"],
-                "shannon": summary["shannon"],
-                "top_taxa": taxa,
-            }
-        )
+        points.append({
+            "sample_id": row["sample_id"],
+            "site_id": summary["site_id"],
+            "latitude": latitude,
+            "longitude": longitude,
+            "collected_at": row.get("collected_at", ""),
+            "total_reads": summary["total_reads"],
+            "species_count": summary["species_count"],
+            "shannon": summary["shannon"],
+            "top_taxa": taxa,
+        })
     return points
 
 
-def all_datasets() -> "list[dict[str, Any]]":
-    return load_datasets() + uploaded_datasets()
+def run_analysis_payload(run_id: str) -> Optional[Dict[str, Any]]:
+    """The trimmed analysis the comparison radar needs.
+
+    Sets are serialised to sorted lists and the heavy per-detection rows are
+    left out: the client needs site metrics, not 60,000 ASV records.
+    """
+    with _ANALYSIS_LOCK:
+        cached = _ANALYSIS_CACHE.get(run_id)
+    if not cached:
+        return None
+    result = cached["analysis"]
+    return {
+        "samples": result["samples"],
+        "species": [
+            {
+                "name": s["name"],
+                "rank": s["rank"],
+                "phylum": s["phylum"],
+                "reads": s["reads"],
+                "sites": sorted(s["sites"]),
+                "samples": sorted(s["samples"]),
+                "max_confidence": round(s["max_confidence"], 4),
+                "placeholder": bool(s.get("placeholder")),
+                "verification": s.get("verification", {}),
+            }
+            for s in result["species"]
+        ],
+        "phyla": [{"name": n, "reads": r} for n, r in result["phyla"]],
+        "site_species": result["site_species"],
+        "watchlist": sorted(watchlist.load_watchlist().keys()),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -710,77 +824,281 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "BioRadar"
 
-    def _send(self, status: int, body: bytes, content_type: str) -> None:
+    # -- plumbing -------------------------------------------------------
+
+    def _send(self, status: int, body: bytes, content_type: str,
+              extra: Optional[Dict[str, str]] = None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Request-ID", obs.get_request_id() or "")
+        # The page loads no third-party code and posts nowhere else; saying so
+        # explicitly means a compromised dependency could not exfiltrate a
+        # dataset even if one appeared.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in (extra or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
 
     def _json(self, status: int, payload: Any) -> None:
         self._send(status, json.dumps(payload).encode("utf-8"), "application/json")
 
+    def _read_json(self) -> Dict[str, Any]:
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b"{}"
+        return json.loads(raw.decode("utf-8"))
+
+    def handle_one_request(self) -> None:
+        """Give every request an id and make sure no handler can 500 silently."""
+        obs.set_request_id(obs.new_request_id())
+        try:
+            super().handle_one_request()
+        finally:
+            obs.set_request_id(None)
+
+    def _guard(self, fn) -> None:
+        try:
+            fn()
+        except BrokenPipeError:
+            # The browser navigated away mid-response. Not an error.
+            pass
+        except Exception as exc:  # noqa: BLE001
+            error_id = log.exception("request.failed", exc, path=self.path,
+                                     method=self.command)
+            try:
+                self._json(500, {
+                    "error": "{t}: {e}".format(t=type(exc).__name__, e=exc),
+                    "error_id": error_id,
+                })
+            except Exception:  # noqa: BLE001
+                pass
+
+    # -- GET ------------------------------------------------------------
+
     def do_GET(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+        self._guard(self._do_get)
+
+    def _do_get(self) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
 
         if path in {"/", "/index.html"}:
             return self._serve_static("index.html")
         if path.startswith("/static/"):
-            return self._serve_static(path[len("/static/") :])
-
-        if path == "/api/datasets":
-            return self._json(200, {"datasets": [describe_dataset(d) for d in all_datasets()]})
-
-        if path == "/api/runs":
-            with _LOCK:
-                runs = [run_summary(r) for r in _RUNS.values()]
-            runs.sort(key=lambda r: r["started_at"], reverse=True)
-            return self._json(200, {"runs": runs})
-
-        if path.startswith("/api/runs/"):
-            parts = path[len("/api/runs/") :].split("/")
-            run_id = parts[0]
-            with _LOCK:
-                state = _RUNS.get(run_id)
-            if state is None:
-                return self._json(404, {"error": "unknown run"})
-            if len(parts) > 1 and parts[1] == "report":
-                report = state.get("report")
-                if not report:
-                    return self._json(404, {"error": "no report yet"})
-                return self._send(
-                    200, report["markdown"].encode("utf-8"), "text/plain; charset=utf-8"
-                )
-            if len(parts) > 1 and parts[1] == "map":
-                return self._json(200, {"points": map_points(run_id)})
-            if len(parts) > 1 and parts[1] == "log":
-                with _LOCK:
-                    events = list(state.get("events", []))
-                return self._json(200, {"events": events})
-            return self._json(200, run_summary(state))
+            return self._serve_static(path[len("/static/"):])
 
         if path == "/api/health":
-            return self._json(200, {"status": "healthy"})
+            health = obs.health()
+            health["runs"] = {
+                "active": len(QUEUE.active()),
+                "total": len(QUEUE.all()),
+            }
+            status = 200 if health["status"] != "unhealthy" else 503
+            return self._json(status, health)
+
+        if path == "/api/errors":
+            return self._json(200, {"errors": obs.recent_errors(
+                _int(query.get("limit"), 20, maximum=100))})
+
+        if path == "/api/channels":
+            return self._json(200, notify.configured_channels())
+
+        if path == "/api/datasets":
+            described = [describe_dataset(d) for d in all_datasets()]
+            return self._json(200, _paginate(described, query, "datasets"))
+
+        if path == "/api/verifications":
+            entries = verification.load()
+            entries.reverse()
+            payload = _paginate(entries, query, "verifications")
+            payload["stats"] = verification.stats()
+            return self._json(200, payload)
+
+        if path == "/api/runs":
+            runs = [run_summary(job) for job in QUEUE.all()]
+            runs.sort(key=lambda r: r.get("started_at") or "", reverse=True)
+            return self._json(200, _paginate(runs, query, "runs"))
+
+        if path == "/api/events":
+            return self._stream_events()
+
+        if path.startswith("/api/runs/"):
+            return self._run_route(path[len("/api/runs/"):])
 
         self._json(404, {"error": "not found", "path": path})
 
+    def _run_route(self, tail: str) -> None:
+        parts = [p for p in tail.split("/") if p]
+        if not parts:
+            return self._json(404, {"error": "not found"})
+
+        run_id = parts[0]
+        job = QUEUE.get(run_id)
+        if job is None:
+            return self._json(404, {"error": "unknown run"})
+
+        if len(parts) == 1:
+            return self._json(200, run_summary(job))
+
+        section = parts[1]
+
+        if section == "report":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no report yet"})
+            return self._send(200, cached["markdown"].encode("utf-8"),
+                              "text/plain; charset=utf-8")
+
+        if section == "map":
+            return self._json(200, {"points": map_points(run_id)})
+
+        if section == "log":
+            return self._json(200, {"events": job.summary(include_events=True).get("events", [])})
+
+        if section == "analysis":
+            payload = run_analysis_payload(run_id)
+            if payload is None:
+                return self._json(404, {"error": "no analysis yet"})
+            return self._json(200, payload)
+
+        if section == "alerts":
+            return self._json(200, run_alerts(run_id))
+
+        if section == "export" and len(parts) > 2:
+            return self._export(run_id, parts[2])
+
+        self._json(404, {"error": "not found"})
+
+    def _export(self, run_id: str, kind: str) -> None:
+        with _ANALYSIS_LOCK:
+            cached = _ANALYSIS_CACHE.get(run_id)
+        if not cached:
+            return self._json(404, {"error": "no results for this run"})
+
+        job = QUEUE.get(run_id)
+        entry = cached["entry"]
+        summary = job.summary() if job else {}
+        meta = {
+            "run_id": run_id,
+            "title": entry.get("name", run_id),
+            "region": entry.get("region", ""),
+            "generated_at": _now(),
+            "image": "ghcr.io/omtawde09/bioradar-pipeline:v1.0",
+            "classifier": entry.get("classifier", ""),
+            "denoiser": entry.get("denoiser", "dada2"),
+            "fprimer": entry.get("fprimer", ""),
+            "rprimer": entry.get("rprimer", ""),
+            "target_gene": entry.get("marker", ""),
+            "reference": entry.get("classifier", ""),
+            "artifact_hash": summary.get("artifact_hash", ""),
+            "country": "India",
+            "country_code": "IN",
+        }
+
+        try:
+            if kind == "detections.csv":
+                body, mime = exports.detections_csv(cached["detections"]), "text/csv; charset=utf-8"
+            elif kind == "species.csv":
+                body, mime = exports.species_csv(cached["analysis"]), "text/csv; charset=utf-8"
+            elif kind == "samples.csv":
+                body, mime = exports.samples_csv(cached["analysis"]), "text/csv; charset=utf-8"
+            elif kind == "analysis.json":
+                body, mime = exports.analysis_json(cached["analysis"], meta), "application/json"
+            elif kind == "dwca.zip":
+                body = exports.darwin_core_archive(
+                    cached["detections"], cached["analysis"], cached["samples_meta"], meta=meta
+                )
+                mime = "application/zip"
+            elif kind == "report.html":
+                body, mime = exports.printable_report(cached["analysis"], meta), "text/html; charset=utf-8"
+            else:
+                return self._json(404, {"error": "unknown export format {k!r}".format(k=kind)})
+        except Exception as exc:  # noqa: BLE001
+            error_id = log.exception("export.failed", exc, run_id=run_id, kind=kind)
+            return self._json(500, {"error": str(exc), "error_id": error_id})
+
+        filename = exports.export_filename(kind, run_id)
+        # report.html opens in a tab (the reader prints it); everything else is
+        # a file they want on disk.
+        disposition = "inline" if kind == "report.html" else "attachment"
+        log.info("export.served", run_id=run_id, kind=kind, bytes=len(body))
+        self._send(200, body, mime, {
+            "Content-Disposition": '{d}; filename="{f}"'.format(d=disposition, f=filename)
+        })
+
+    def _stream_events(self) -> None:
+        """Server-sent events: progress, run transitions, alerts.
+
+        A WebSocket would mean hand-rolling RFC 6455 framing on top of
+        BaseHTTPRequestHandler for a stream that only ever flows one way.
+        EventSource also reconnects by itself.
+        """
+        stream: "queue.Queue" = queue.Queue(maxsize=200)
+        with _stream_lock:
+            _streams.append(stream)
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        # Content-Length is unknown and must not be sent, so the connection is
+        # explicitly not keep-alive-with-length; HTTP/1.1 chunking is skipped by
+        # closing at the end.
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        try:
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            while True:
+                try:
+                    event_type, payload = stream.get(timeout=15)
+                    message = "event: {e}\ndata: {d}\n\n".format(
+                        e=event_type, d=json.dumps(payload)
+                    )
+                except queue.Empty:
+                    # A comment frame keeps proxies and load balancers from
+                    # closing an idle stream at 30 or 60 seconds.
+                    message = ": keepalive\n\n"
+                self.wfile.write(message.encode("utf-8"))
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with _stream_lock:
+                if stream in _streams:
+                    _streams.remove(stream)
+
+    # -- DELETE ---------------------------------------------------------
+
     def do_DELETE(self) -> None:  # noqa: N802
+        self._guard(self._do_delete)
+
+    def _do_delete(self) -> None:
         import shutil
 
         path = urlparse(self.path).path
 
         if path in {"/api/runs", "/api/runs/"}:
-            with _LOCK:
-                active = [r for r in _RUNS.values() if r["status"] == "running"]
-                if active:
-                    return self._json(
-                        409,
-                        {"error": "a run is in progress; wait for it to finish"},
-                    )
-                cleared = len(_RUNS)
-                _RUNS.clear()
+            if QUEUE.active():
+                return self._json(409, {"error": "a run is in progress; wait for it to finish"})
+            cleared = QUEUE.clear_finished()
+            with _ANALYSIS_LOCK:
+                _ANALYSIS_CACHE.clear()
+            publish("run", {"cleared": cleared})
             return self._json(200, {"cleared": cleared})
+
+        if path.startswith("/api/runs/"):
+            run_id = path[len("/api/runs/"):]
+            if not QUEUE.get(run_id):
+                return self._json(404, {"error": "unknown run"})
+            cancelled = QUEUE.cancel(run_id)
+            publish("run", {"run_id": run_id, "status": "cancelling"})
+            return self._json(200, {"cancelled": cancelled, "run_id": run_id})
 
         if not path.startswith("/api/datasets/"):
             return self._json(404, {"error": "not found"})
@@ -803,28 +1121,29 @@ class Handler(BaseHTTPRequestHandler):
                     400, {"error": "refusing to delete outside the uploads directory"}
                 )
             shutil.rmtree(directory, ignore_errors=True)
-            return self._json(
-                200, {"removed": dataset_id, "files_deleted": True}
-            )
+            log.info("dataset.deleted", dataset=dataset_id, files_deleted=True)
+            return self._json(200, {"removed": dataset_id, "files_deleted": True})
 
         # A registry dataset points at data/ that the user may have generated or
         # downloaded deliberately. Take it off the list by dropping the registry
         # entry, and leave the files alone -- silently deleting someone's data
         # because they wanted a tidier list would be the wrong trade.
-        removed = _remove_registry_entry(dataset_id)
-        if not removed:
+        if not _remove_registry_entry(dataset_id):
             return self._json(404, {"error": "dataset is not in the registry"})
-        return self._json(
-            200,
-            {
-                "removed": dataset_id,
-                "files_deleted": False,
-                "note": f"Removed from the list. The FASTQ files are still in "
-                        f"{entry['fastq_dir']}.",
-            },
-        )
+        log.info("dataset.deregistered", dataset=dataset_id)
+        return self._json(200, {
+            "removed": dataset_id,
+            "files_deleted": False,
+            "note": "Removed from the list. The FASTQ files are still in {d}.".format(
+                d=entry["fastq_dir"]),
+        })
+
+    # -- POST -----------------------------------------------------------
 
     def do_POST(self) -> None:  # noqa: N802
+        self._guard(self._do_post)
+
+    def _do_post(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -832,22 +1151,47 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_upload(parsed.query)
         if path == "/api/upload/finalize":
             return self._handle_finalize()
+        if path == "/api/verifications":
+            return self._handle_verification()
+        if path == "/api/runs":
+            return self._handle_start_run()
 
-        if path != "/api/runs":
-            return self._json(404, {"error": "not found"})
+        self._json(404, {"error": "not found"})
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length) if length else b"{}"
+    def _handle_start_run(self) -> None:
         try:
-            body = json.loads(raw.decode("utf-8"))
+            body = self._read_json()
             state = start_run(body["dataset_id"])
         except KeyError as exc:
             return self._json(400, {"error": str(exc)})
-        except RuntimeError as exc:
-            return self._json(409, {"error": str(exc)})
-        except Exception as exc:  # noqa: BLE001
-            return self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
-        return self._json(201, run_summary(state))
+        except ValueError as exc:
+            return self._json(400, {"error": "bad request: {e}".format(e=exc)})
+        return self._json(201, state)
+
+    def _handle_verification(self) -> None:
+        try:
+            body = self._read_json()
+            entry = verification.record(
+                scientific_name=body.get("scientific_name", ""),
+                site_id=body.get("site_id", ""),
+                outcome=body.get("outcome", ""),
+                observer=body.get("observer", ""),
+                run_id=body.get("run_id", ""),
+                sample_id=body.get("sample_id", ""),
+                notes=body.get("notes", ""),
+                observed_name=body.get("observed_name", ""),
+                latitude=body.get("latitude"),
+                longitude=body.get("longitude"),
+                observed_at=body.get("observed_at", ""),
+            )
+        except ValueError as exc:
+            return self._json(400, {"error": str(exc)})
+
+        # The status a species carries is derived from the tally, so a new check
+        # has to invalidate the cached reports that embed it.
+        _refresh_verification_status()
+        publish("run", {"verification": entry["verification_id"]})
+        return self._json(201, entry)
 
     def _handle_upload(self, query: str) -> None:
         """Receive one FASTQ as a raw body.
@@ -857,13 +1201,18 @@ class Handler(BaseHTTPRequestHandler):
         hand-rolling one for gigabyte uploads is a bug farm. The browser posts
         each File object directly, which also streams.
         """
-        from urllib.parse import parse_qs
-
         params = parse_qs(query)
         batch = (params.get("batch") or [""])[0]
         filename = (params.get("filename") or [""])[0]
         if not batch or not filename:
             return self._json(400, {"error": "batch and filename are required"})
+
+        length = int(self.headers.get("Content-Length", 0))
+        if length > MAX_UPLOAD_BYTES:
+            return self._json(413, {
+                "error": "{f} is {g:.1f} GB; the limit is {l} GB".format(
+                    f=filename, g=length / 1e9, l=MAX_UPLOAD_BYTES // 1024 ** 3)
+            })
 
         try:
             directory = upload_dir(batch)
@@ -879,16 +1228,13 @@ class Handler(BaseHTTPRequestHandler):
         else:
             normalised = normalise_upload_name(filename)
             if normalised is None:
-                return self._json(
-                    400,
-                    {
-                        "error": f"{filename}: not a recognisable paired FASTQ name. "
-                        "Expected something like SAMPLE_R1_001.fastq.gz"
-                    },
-                )
+                return self._json(400, {
+                    "error": "{f}: not a recognisable paired FASTQ name. "
+                             "Expected something like SAMPLE_R1_001.fastq.gz".format(f=filename)
+                })
             sample, mate = normalised
-            target = directory / f"{sample}_S1_L001_R{mate}_001.fastq.gz"
-        length = int(self.headers.get("Content-Length", 0))
+            target = directory / "{s}_S1_L001_R{m}_001.fastq.gz".format(s=sample, m=mate)
+
         remaining = length
         with target.open("wb") as handle:
             while remaining > 0:
@@ -898,24 +1244,27 @@ class Handler(BaseHTTPRequestHandler):
                 handle.write(chunk)
                 remaining -= len(chunk)
 
-        return self._json(
-            201,
-            {
-                "stored": target.name,
-                "sample_id": sample,
-                "mate": mate,
-                "bytes": target.stat().st_size,
-            },
-        )
+        if remaining > 0:
+            # A short body means the connection dropped mid-upload. Keeping the
+            # partial file would send a truncated FASTQ into the pipeline, which
+            # fails half an hour later with an error nobody can read.
+            target.unlink(missing_ok=True)
+            return self._json(400, {
+                "error": "{f}: upload was cut short ({r} bytes missing). "
+                         "Try again.".format(f=filename, r=remaining)
+            })
+
+        return self._json(201, {
+            "stored": target.name, "sample_id": sample, "mate": mate,
+            "bytes": target.stat().st_size,
+        })
 
     def _handle_finalize(self) -> None:
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length) if length else b"{}"
         try:
-            body = json.loads(raw.decode("utf-8"))
+            body = self._read_json()
             batch = body.pop("batch")
         except (ValueError, KeyError) as exc:
-            return self._json(400, {"error": f"bad request: {exc}"})
+            return self._json(400, {"error": "bad request: {e}".format(e=exc)})
 
         try:
             directory = upload_dir(batch)
@@ -930,15 +1279,16 @@ class Handler(BaseHTTPRequestHandler):
             if not (p.parent / p.name.replace("_R1_", "_R2_")).is_file()
         ]
         if unpaired:
-            return self._json(
-                400,
-                {"error": f"unpaired read files (no R2): {', '.join(unpaired)}"},
-            )
+            return self._json(400, {
+                "error": "unpaired read files (no R2): {u}".format(u=", ".join(unpaired))
+            })
         if not r1:
             return self._json(400, {"error": "no FASTQ files were uploaded"})
 
         entry = register_upload(batch, body)
-        return self._json(201, describe_dataset(entry))
+        return self._json(201, describe_dataset(entry, refresh=True))
+
+    # -- static ---------------------------------------------------------
 
     def _serve_static(self, relative: str) -> None:
         # Defend against path traversal before touching the filesystem.
@@ -946,26 +1296,74 @@ class Handler(BaseHTTPRequestHandler):
         if not str(target).startswith(str(STATIC_DIR.resolve())) or not target.is_file():
             return self._json(404, {"error": "not found"})
         content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-        if content_type.startswith("text/") or content_type == "application/javascript":
+        if content_type.startswith("text/") or content_type in {
+            "application/javascript", "text/javascript"
+        }:
             content_type += "; charset=utf-8"
         self._send(200, target.read_bytes(), content_type)
 
     def log_message(self, fmt: str, *args: Any) -> None:
         if getattr(self.server, "verbose", False):
-            super().log_message(fmt, *args)
+            log.debug("http", message=fmt % args, client=self.address_string())
+
+
+def _refresh_verification_status() -> None:
+    """Re-annotate cached analyses after a new field check."""
+    with _ANALYSIS_LOCK:
+        run_ids = list(_ANALYSIS_CACHE.keys())
+    for run_id in run_ids:
+        with _ANALYSIS_LOCK:
+            cached = _ANALYSIS_CACHE.get(run_id)
+        if not cached:
+            continue
+        result = cached["analysis"]
+        site_lookup = {s["name"]: sorted(s.get("sites", ())) for s in result["species"]}
+        result["species"] = verification.annotate(result["species"], site_lookup)
+
+
+def _int(values: Optional[List[str]], default: int, maximum: int = 10 ** 6) -> int:
+    try:
+        return max(0, min(maximum, int((values or [str(default)])[0])))
+    except (TypeError, ValueError):
+        return default
+
+
+def _paginate(items: List[Any], query: Dict[str, List[str]], key: str) -> Dict[str, Any]:
+    """Bound every list response.
+
+    A survey with 10,000 samples returning one JSON array locks the browser tab.
+    The default limit is generous enough that no realistic demo hits it and
+    small enough that a pathological dataset cannot take the page down.
+    """
+    limit = _int(query.get("limit"), 200, maximum=2000)
+    offset = _int(query.get("offset"), 0)
+    window = items[offset:offset + limit] if limit else items[offset:]
+    return {
+        key: window,
+        "total": len(items),
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + len(window) < len(items),
+    }
 
 
 def serve(host: str = "0.0.0.0", port: int = 8080, verbose: bool = False) -> None:
     server = ThreadingHTTPServer((host, port), Handler)
     server.verbose = verbose  # type: ignore[attr-defined]
     shown = "localhost" if host in {"0.0.0.0", ""} else host
-    recovered = recover_runs()
-    print("BioRadar control panel")
-    print(f"  http://{shown}:{port}")
-    print(f"  datasets: {len(load_datasets())}")
-    if recovered:
-        print(f"  recovered {recovered} completed run(s) from disk")
+    recover_runs()
+    health = obs.health()
+    print("BioRadar dashboard")
+    print("  http://{h}:{p}".format(h=shown, p=port))
+    print("  datasets : {n}".format(n=len(all_datasets())))
+    print("  health   : {s}".format(s=health["status"]))
+    if health["failing"]:
+        print("  degraded : {f}".format(f=", ".join(health["failing"])))
+    channels = notify.configured_channels()
+    enabled = [name for name in ("email", "webhook") if channels[name]["enabled"]]
+    print("  alerts   : {c}".format(c=", ".join(enabled) if enabled else "dashboard only"))
     print("  Ctrl-C to stop")
+    log.info("server.started", port=port, health=health["status"])
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -974,7 +1372,7 @@ def serve(host: str = "0.0.0.0", port: int = 8080, verbose: bool = False) -> Non
         server.server_close()
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(prog="bioradar.webapp")

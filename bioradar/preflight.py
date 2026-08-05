@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import gzip
 import re
+import zlib
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,6 +118,115 @@ def _read_records(path: Path, limit: int = READS_SAMPLED) -> tuple[list[str], li
                 if len(qualities) >= limit:
                     break
     return sequences, qualities
+
+
+# A FASTQ under a few hundred bytes cannot hold a usable library; a single file
+# over this is either not what the user thinks it is or will not finish on a
+# laptop. Both are worth saying before the run rather than after.
+MIN_FASTQ_BYTES = 200
+MAX_FASTQ_BYTES = 8 * 1024 ** 3
+
+# Enough reads for DADA2 to fit an error model. Below this it will either fail
+# outright or produce a model built on noise.
+MIN_READS = 100
+
+
+def check_integrity(path: Path) -> list[Finding]:
+    """Catch a corrupt or mislabelled file now, not 30 minutes into DADA2.
+
+    Truncated downloads are the single most common cause of a pipeline run that
+    dies deep inside R with an error nobody can read. gzip carries a CRC32 and a
+    length in its trailer precisely so this is detectable, and checking costs one
+    decompression of a file we are about to decompress anyway.
+    """
+    findings: list[Finding] = []
+    name = path.name
+
+    if not path.is_file():
+        return [Finding("error", "integrity", f"{name}: file is missing")]
+
+    size = path.stat().st_size
+    if size < MIN_FASTQ_BYTES:
+        return [
+            Finding(
+                "error",
+                "integrity",
+                f"{name}: {size} bytes -- too small to contain reads",
+                "The upload or download was probably interrupted. Re-transfer it.",
+            )
+        ]
+    if size > MAX_FASTQ_BYTES:
+        findings.append(
+            Finding(
+                "warning",
+                "integrity",
+                f"{name}: {size / 1e9:.1f} GB",
+                "A file this large will take hours on a laptop and may exhaust "
+                "memory during denoising. Consider subsampling for the demo.",
+            )
+        )
+
+    is_gzip = str(path).endswith(".gz")
+    if is_gzip:
+        with path.open("rb") as handle:
+            magic = handle.read(2)
+        if magic != b"\x1f\x8b":
+            return [
+                Finding(
+                    "error",
+                    "integrity",
+                    f"{name}: named .gz but is not gzip data",
+                    "The file was probably decompressed and re-named, or renamed "
+                    "by a download manager. Check what it actually is.",
+                )
+            ]
+
+    # Read the whole file so gzip verifies its trailing CRC32 and size. Reading
+    # only the first few reads -- which every other check here does -- would sail
+    # straight past a file truncated at 90%.
+    reads = 0
+    first_char = ""
+    try:
+        opener = gzip.open if is_gzip else open
+        with opener(path, "rt", errors="replace") as handle:  # type: ignore[operator]
+            for index, line in enumerate(handle):
+                if index == 0:
+                    first_char = line[:1]
+                if index % 4 == 0:
+                    reads += 1
+    except (OSError, EOFError, zlib.error) as exc:
+        return [
+            Finding(
+                "error",
+                "integrity",
+                f"{name}: {type(exc).__name__} while reading -- the file is truncated "
+                "or corrupt",
+                "gzip's checksum did not match. Re-download or re-upload this file; "
+                "the pipeline would fail on it several minutes in.",
+            )
+        ]
+
+    if first_char and first_char != "@":
+        findings.append(
+            Finding(
+                "error",
+                "integrity",
+                f"{name}: first line does not start with '@'",
+                "This is not FASTQ. A FASTA file (starting '>') is the usual "
+                "mix-up; the pipeline needs reads with quality scores.",
+            )
+        )
+    if reads < MIN_READS:
+        findings.append(
+            Finding(
+                "error",
+                "integrity",
+                f"{name}: only {reads} read(s)",
+                f"DADA2 needs at least ~{MIN_READS} reads to fit an error model. "
+                "This file is effectively empty.",
+            )
+        )
+    return findings
 
 
 def check_quality_encoding(path: Path) -> tuple[Finding | None, int]:
@@ -434,6 +544,18 @@ def run(
             result.findings.append(
                 Finding("error", "layout", f"{r1.name} has no R2 mate")
             )
+            continue
+
+        corrupt = False
+        for path in (r1, r2):
+            integrity = check_integrity(path)
+            result.findings.extend(integrity)
+            if any(f.level == "error" for f in integrity):
+                corrupt = True
+        # Every check below decodes the same bytes. Running them on a file we
+        # have just proved is truncated produces a second, more confusing error
+        # about quality scores when the real problem is the transfer.
+        if corrupt:
             continue
 
         for path in (r1, r2):

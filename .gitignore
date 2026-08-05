@@ -55,3 +55,15 @@ data/reference_coi_india/.cache/
 # Uploaded datasets are transient user data, not part of the project.
 data/uploads/
 reports/*.md
+
+# Structured error records. Diagnostic output from whatever ran on this machine;
+# useful locally, meaningless in someone else's checkout.
+logs/
+
+# Field verification reports are somebody's observations, recorded on their
+# machine. They are evidence, not source -- and they may name the observer, so
+# committing them would publish a person's name along with the code.
+data/verifications.jsonl
+
+# Local dev-server config for the editor's preview pane.
+.claude/

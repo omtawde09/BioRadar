@@ -386,12 +386,28 @@ class PipelineRunner:
                 errors="replace",
             )
             assert process.stdout is not None
-            for line in process.stdout:
-                log.write(line)
-                event = self._parse_progress(line, stages)
-                if event and progress:
-                    progress(event)
-            process.wait()
+            try:
+                for line in process.stdout:
+                    log.write(line)
+                    event = self._parse_progress(line, stages)
+                    if event and progress:
+                        progress(event)
+                process.wait()
+            except BaseException:
+                # The progress callback is how a caller cancels or enforces a
+                # deadline, and it does that by raising. Letting that exception
+                # unwind without killing the child would orphan a Snakemake
+                # process that holds every core on the machine -- the run would
+                # look cancelled while still making the next one impossible.
+                log.write("\n[bioradar] terminating pipeline\n")
+                process.terminate()
+                try:
+                    process.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    # QIIME 2 spawns R and vsearch children that ignore SIGTERM.
+                    process.kill()
+                    process.wait(timeout=10)
+                raise
 
         return process.returncode, stages, log_path
 

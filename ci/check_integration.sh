@@ -259,7 +259,97 @@ fi
 
 # ---------------------------------------------------------------------------
 echo
-echo "11. Reference data"
+echo "11. Export formats"
+check "Darwin Core Archive is structurally valid" $PYTHON -c "
+import csv, io, zipfile
+from bioradar import exports
+from bioradar.report import analyse
+rows = list(csv.DictReader(open('$WORK/out/taxonomy_normalized.csv', newline='', encoding='utf-8')))
+result = analyse(rows)
+archive = zipfile.ZipFile(io.BytesIO(exports.darwin_core_archive(rows, result, [], meta={'run_id':'ci'})))
+missing = {'occurrence.txt','dna.txt','meta.xml','eml.xml'} - set(archive.namelist())
+assert not missing, f'DwC-A is missing {missing}'
+lines = archive.read('occurrence.txt').decode('utf-8').rstrip(chr(10)).split(chr(10))
+widths = {len(l.split(chr(9))) for l in lines}
+assert widths == {len(exports.OCCURRENCE_FIELDS)}, f'ragged TSV: {widths}'
+core = {l.split(chr(9))[0] for l in lines[1:]}
+ext = {l.split(chr(9))[0] for l in archive.read('dna.txt').decode('utf-8').rstrip(chr(10)).split(chr(10))[1:]}
+assert core == ext, 'the DNA extension does not join to the occurrence core'
+print(f'{len(core)} occurrences, extension joined')
+"
+
+check "printable report references nothing external" $PYTHON -c "
+import csv, re, sys
+from bioradar import exports
+from bioradar.report import analyse
+rows = list(csv.DictReader(open('$WORK/out/taxonomy_normalized.csv', newline='', encoding='utf-8')))
+html = exports.printable_report(analyse(rows), {'title': 'CI'}).decode('utf-8')
+for pattern in ('<script', '<link', 'src=', '@import'):
+    if pattern in html:
+        sys.exit(f'the report pulls in {pattern!r}; it must survive being emailed and opened offline')
+print('self-contained')
+"
+
+# ---------------------------------------------------------------------------
+echo
+echo "12. Frontend"
+check "every static asset the page loads exists" $PYTHON -c "
+import re, sys
+from pathlib import Path
+static = Path('bioradar/webapp_static')
+html = (static / 'index.html').read_text(encoding='utf-8')
+refs = re.findall(r'(?:src|href)=\"/static/([^\"]+)\"', html)
+missing = [r for r in refs if not (static / r).is_file()]
+if missing:
+    sys.exit(f'index.html references files that do not exist: {missing}')
+print(f'{len(refs)} assets, all present')
+"
+
+check "no external asset is loaded at page load" $PYTHON -c "
+import re, sys
+from pathlib import Path
+# The app is served from inside the pipeline image and demonstrated on
+# conference wifi. A CDN font or script would be a blank page at the worst
+# possible moment. Map *tiles* are fetched at runtime and are exempt --
+# they degrade to a grey square, not a broken app.
+html = Path('bioradar/webapp_static/index.html').read_text(encoding='utf-8')
+external = re.findall(r'(?:src|href)=\"(https?://[^\"]+)\"', html)
+if external:
+    sys.exit(f'index.html loads external resources: {external}')
+print('no external <script> or <link>')
+"
+
+check "the design system defines exactly five shadow tokens" $PYTHON -c "
+import re, sys
+from pathlib import Path
+# Section 7 of the UI guide: five, no more, no less. Inventing a sixth
+# mid-development is the single most reliable way to make neumorphism look
+# improvised, so the count is enforced rather than trusted.
+css = Path('bioradar/webapp_static/app.css').read_text(encoding='utf-8')
+tokens = sorted(set(re.findall(r'--(neu-[a-z-]+):', css)))
+expected = ['neu-input', 'neu-pressed', 'neu-raised', 'neu-raised-lg', 'neu-raised-sm']
+if tokens != expected:
+    sys.exit(f'shadow tokens drifted: {tokens} != {expected}')
+print('5 shadow tokens')
+"
+
+check "no hardcoded hex colour outside the token block" $PYTHON -c "
+import re, sys
+from pathlib import Path
+css = Path('bioradar/webapp_static/app.css').read_text(encoding='utf-8')
+# Everything after the [data-theme=\"light\"] block must use var(--token).
+body = css.split('/* ── Base', 1)[-1]
+strays = [h for h in re.findall(r'#[0-9a-fA-F]{3,8}\b', body)
+          if h.lower() not in {'#fff', '#ffffff', '#000', '#04231b', '#241a04',
+                               '#131a1a', '#06202e', '#2b0d1f', '#1a1a1a', '#ccc'}]
+if strays:
+    sys.exit(f'hardcoded colours outside the token block: {sorted(set(strays))}')
+print('colours come from tokens')
+"
+
+# ---------------------------------------------------------------------------
+echo
+echo "13. Reference data"
 check "sites.csv has coordinates for every site" $PYTHON -c "
 import csv, sys
 rows = list(csv.DictReader(open('data/sites.csv', newline='', encoding='utf-8')))
