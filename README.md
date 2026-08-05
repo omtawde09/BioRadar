@@ -534,6 +534,7 @@ Never parse the raw `Taxon` lineage string yourself — use the normalizer.
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | Data formats between components |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | The bioinformatics itself |
 | [docs/DEMO_DATASET.md](docs/DEMO_DATASET.md) | What the sample data is and is not |
+| [README_TEAM.md](README_TEAM.md) | Team onboarding: install, run, test, and contribute |
 | [docs/DESIGN.md](docs/DESIGN.md) | The design system — tokens, components, accessibility |
 | [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | What was built, what was substituted, what was not |
 
