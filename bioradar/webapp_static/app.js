@@ -36,6 +36,66 @@
 
   var maps = {};         // run_id -> { map, cluster, heat }
 
+  /* ── Render scheduling ───────────────────────────────────────────────
+
+     Two rules that between them are the difference between a smooth app and a
+     stuttering one.
+
+     1. Nothing renders synchronously from a network callback. Renders are
+        coalesced into the next animation frame, so a poll response, an SSE
+        progress event and a view switch arriving together paint once instead
+        of three times.
+     2. Every view keeps a signature of the data it drew. If the signature is
+        unchanged the render is skipped entirely -- and crucially, a re-render
+        is never a no-op that still costs an innerHTML teardown, because
+        rebuilding innerHTML discards scroll position, kills every running
+        transition, and drops the DOM nodes the browser had already laid out.  */
+
+  var renderers = {};        // view id -> render function
+  var signatures = {};       // view id -> last drawn signature
+  var frameQueued = false;
+
+  function scheduleRender() {
+    if (frameQueued) return;
+    frameQueued = true;
+
+    var ran = false;
+    var flush = function () {
+      if (ran) return;
+      ran = true;
+      frameQueued = false;
+      var render = renderers[activeViewId];
+      if (render) render();
+    };
+
+    requestAnimationFrame(flush);
+    // requestAnimationFrame does not fire in a backgrounded tab, and in some
+    // embedded browser panes it does not fire at all. Without this fallback the
+    // queued flag latches on the first missed frame and the UI never updates
+    // again -- a deadlock that only shows up after the user switches away and
+    // comes back, which is exactly when they are least likely to forgive it.
+    setTimeout(flush, 120);
+  }
+
+  /** Returns false when the view is already showing this exact data. */
+  function changed(viewId, signature) {
+    if (signatures[viewId] === signature) return false;
+    signatures[viewId] = signature;
+    return true;
+  }
+
+  function invalidate(viewId) {
+    if (viewId) delete signatures[viewId];
+    else signatures = {};
+  }
+
+  var reduceMotion = window.matchMedia &&
+                     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-reduced-motion: reduce)").addEventListener(
+      "change", function (e) { reduceMotion = e.matches; });
+  }
+
   /* ── API ──────────────────────────────────────────────────────────── */
 
   function api(path, options) {
@@ -153,6 +213,13 @@
       feature.mounted = true;
     }
     activeViewId = id;
+
+    // Always repaint a view the user just opened. The signature guard exists to
+    // skip redundant *polling* re-renders; letting it skip a navigation leaves
+    // the user looking at an empty panel, because mount() has just replaced the
+    // container the previous render wrote into.
+    invalidate(id);
+
     if (feature.onShow) feature.onShow(container);
     if (feature.refresh) feature.refresh(container);
 
@@ -180,6 +247,17 @@
       feature.refresh(document.getElementById("view-" + activeViewId));
     }
   }
+
+  // The scheduler renders whichever view is showing; each feature's refresh is
+  // the entry point, and each guards itself on a signature.
+  ["analyze", "monitor", "results", "compare", "alerts", "settings"].forEach(function (id) {
+    renderers[id] = function () {
+      var feature = Registry.get(id);
+      if (feature && feature.refresh) {
+        feature.refresh(document.getElementById("view-" + id));
+      }
+    };
+  });
 
   /* ══════════════════════════════════════════════════════════════════════
      Header actions
@@ -290,6 +368,7 @@
               '<span id="uploadStatus" class="hint"></span>' +
             "</div>" +
             '<div class="progress hidden" id="uploadBar"><div style="width:0"></div></div>' +
+            '<div id="uploadStages"></div>' +
           "</div>", { size: "lg" }) +
 
         '<section><div class="view-head"><div><h2>' + esc(t("analyze.datasets")) + "</h2>" +
@@ -406,19 +485,30 @@
       var tag = meta ? '<span class="tag meta">SHEET</span>'
               : mate ? '<span class="tag r' + mate + '">R' + mate + "</span>"
                      : '<span class="tag bad">no mate</span>';
-      return '<div class="file-row">' + tag +
+      return '<div class="file-row" data-index="' + index + '" style="--i:' + index + '">' + tag +
         '<span class="nm" title="' + esc(file.name) + '">' + esc(file.name) + "</span>" +
         '<span class="sz">' + UI.mb(file.size) + "</span>" +
         '<button class="link" type="button" data-rm="' + index + '">remove</button>' +
+        '<span class="file-progress"><span></span></span>' +
         "</div>";
     }).join("");
 
     list.querySelectorAll("[data-rm]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        state.staged.splice(Number(btn.dataset.rm), 1);
-        renderFiles();
+        var row = btn.closest(".file-row");
+        var index = Number(btn.dataset.rm);
+        // Animate the row out before the list is rebuilt, so removing a file
+        // reads as an action rather than as content vanishing.
+        if (row && !UI.prefersReducedMotion()) {
+          row.classList.add("removing");
+          setTimeout(function () { state.staged.splice(index, 1); renderFiles(); }, 170);
+        } else {
+          state.staged.splice(index, 1);
+          renderFiles();
+        }
       });
     });
+    UI.animateIn(list, ".file-row");
 
     panel.classList.remove("hidden");
 
@@ -430,6 +520,57 @@
       (r1 === r2 && r1 > 0 ? r1 + " sample(s) paired" : r1 + " R1 and " + r2 + " R2 — these must match") +
       (sheets.length ? " · " + sheets.length + " sample sheet (map coordinates)"
                      : " · no sample sheet — the map will be empty");
+  }
+
+  /* One PUT per file with real byte progress.
+     `fetch` cannot report upload progress -- there is no upload-side stream in
+     the spec that ships in browsers today -- so this uses XHR, which has had
+     `upload.onprogress` for fifteen years. For a multi-gigabyte FASTQ that is
+     the difference between a progress bar and a frozen page. */
+  function uploadFile(batch, file, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/upload?batch=" + encodeURIComponent(batch) +
+                       "&filename=" + encodeURIComponent(file.name));
+      xhr.upload.addEventListener("progress", function (event) {
+        if (event.lengthComputable) onProgress(event.loaded, event.total);
+      });
+      xhr.addEventListener("load", function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress(file.size, file.size);
+          resolve();
+          return;
+        }
+        var message = "HTTP " + xhr.status;
+        try { message = JSON.parse(xhr.responseText).error || message; } catch (e) { /* not JSON */ }
+        reject(new Error(file.name + ": " + message));
+      });
+      xhr.addEventListener("error", function () {
+        reject(new Error(file.name + ": the connection dropped"));
+      });
+      xhr.addEventListener("abort", function () {
+        reject(new Error(file.name + ": cancelled"));
+      });
+      xhr.send(file);
+    });
+  }
+
+  var UPLOAD_STAGES = [
+    ["transfer", "Transferring files"],
+    ["integrity", "Checking file integrity"],
+    ["detect", "Reading primers and read length"],
+    ["configure", "Configuring the pipeline"]
+  ];
+
+  function renderUploadStages(host, activeIndex, detail) {
+    host.innerHTML = '<div class="stages">' + UPLOAD_STAGES.map(function (pair, index) {
+      var cls = index < activeIndex ? "done" : index === activeIndex ? "active" : "";
+      return '<div class="stage-row ' + cls + '" data-stage-row="' + index + '">' +
+        '<span class="mark">' + (index < activeIndex ? "✓" : String(index + 1)) + "</span>" +
+        "<span>" + esc(pair[1]) + "</span>" +
+        '<span class="detail">' + esc(index === activeIndex ? (detail || "") : "") + "</span>" +
+        "</div>";
+    }).join("") + "</div>";
   }
 
   function startUpload() {
@@ -446,36 +587,82 @@
     var bar = document.getElementById("uploadBar");
     var fill = bar.firstElementChild;
     var button = document.getElementById("uploadBtn");
-    var status = document.getElementById("uploadStatus");
+    var clear = document.getElementById("clearBtn");
+    var stageHost = document.getElementById("uploadStages");
+    var files = state.staged.slice();
+    var totalBytes = files.reduce(function (sum, f) { return sum + f.size; }, 0);
 
     bar.classList.remove("hidden");
+    bar.classList.add("live");
     button.disabled = true;
     button.classList.add("loading");
+    clear.disabled = true;
+    renderUploadStages(stageHost, 0, "");
 
-    var done = 0, cursor = 0;
-    var CONCURRENCY = 4;   // the browser caps per-host connections anyway
+    // Per-file byte counters, so the aggregate bar reflects bytes actually on
+    // the wire rather than files finished. With four uploads in flight the
+    // file-count version sat still for seconds at a time.
+    var sent = files.map(function () { return 0; });
+    var started = Date.now();
+    var cursor = 0;
 
-    function worker() {
-      if (cursor >= state.staged.length) return Promise.resolve();
-      var file = state.staged[cursor++];
-      return fetch("/api/upload?batch=" + encodeURIComponent(batch) +
-                   "&filename=" + encodeURIComponent(file.name),
-                   { method: "POST", body: file })
-        .then(function (response) {
-          if (!response.ok) return response.json().then(function (b) { throw new Error(b.error); });
-          done++;
-          fill.style.width = Math.round((done / state.staged.length) * 100) + "%";
-          status.textContent = "Uploading " + done + " " + t("common.of") + " " + state.staged.length + "…";
-          return worker();
-        });
+    function paint() {
+      var loaded = sent.reduce(function (a, b) { return a + b; }, 0);
+      var pct = totalBytes ? (loaded / totalBytes) * 100 : 0;
+      fill.style.width = pct.toFixed(1) + "%";
+
+      var seconds = (Date.now() - started) / 1000;
+      var rate = seconds > 0.4 ? loaded / seconds : 0;
+      var detail = UI.mb(loaded) + " / " + UI.mb(totalBytes);
+      if (rate > 0) {
+        var remaining = Math.max(0, (totalBytes - loaded) / rate);
+        detail += " · " + UI.mb(rate).replace(" MB", " MB/s");
+        if (remaining > 1) detail += " · " + UI.duration(remaining) + " left";
+      }
+      var row = stageHost.querySelector('[data-stage-row="0"] .detail');
+      if (row) row.textContent = detail;
     }
 
+    function worker() {
+      if (cursor >= files.length) return Promise.resolve();
+      var index = cursor++;
+      var file = files[index];
+      var row = document.querySelector('.file-row[data-index="' + index + '"]');
+      if (row) row.className = "file-row uploading";
+      var fileFill = row && row.querySelector(".file-progress > span");
+
+      return uploadFile(batch, file, function (loaded) {
+        sent[index] = loaded;
+        if (fileFill) fileFill.style.width = ((loaded / file.size) * 100).toFixed(1) + "%";
+        paint();
+      }).then(function () {
+        if (row) row.className = "file-row done";
+        return worker();
+      }, function (error) {
+        if (row) row.className = "file-row failed";
+        throw error;
+      });
+    }
+
+    var ticker = setInterval(paint, 250);
     var pool = [];
-    for (var i = 0; i < Math.min(CONCURRENCY, state.staged.length); i++) pool.push(worker());
+    // Four at a time: sequential upload of two dozen small files spends nearly
+    // all its wall time on round-trip latency, and the browser caps per-host
+    // connections at six anyway.
+    for (var i = 0; i < Math.min(4, files.length); i++) pool.push(worker());
 
     Promise.all(pool)
       .then(function () {
-        status.textContent = "Reading your data and configuring the pipeline…";
+        clearInterval(ticker);
+        fill.style.width = "100%";
+        // The server now decompresses every file to verify it and to read the
+        // primers off the reads. That takes real seconds, so the bar goes
+        // indeterminate and the stage list says what is happening -- the old
+        // version left a disabled button and no explanation at all.
+        bar.classList.add("indeterminate");
+        renderUploadStages(stageHost, 1, "");
+        setTimeout(function () { renderUploadStages(stageHost, 2, ""); }, 700);
+
         return api("/api/upload/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -491,10 +678,7 @@
         });
       })
       .then(function (dataset) {
-        state.staged = [];
-        renderFiles();
-        bar.classList.add("hidden");
-        fill.style.width = "0";
+        renderUploadStages(stageHost, UPLOAD_STAGES.length, "");
         var detected = dataset.detected || {};
         UI.toast(
           dataset.status === "ready"
@@ -502,16 +686,30 @@
             : "Uploaded, but: " + dataset.status_detail,
           dataset.status === "ready" ? "success" : "warning"
         );
+        // Let the last tick land before the panel collapses, so the completed
+        // checklist is visible rather than flashing past.
+        setTimeout(function () {
+          state.staged = [];
+          renderFiles();
+          stageHost.innerHTML = "";
+          bar.classList.add("hidden");
+          bar.classList.remove("indeterminate", "live");
+          fill.style.width = "0";
+        }, 900);
+        invalidate("analyze");
         return poll();
       })
       .catch(function (error) {
+        clearInterval(ticker);
         UI.toast(error.message || String(error), "error");
         bar.classList.add("hidden");
+        bar.classList.remove("indeterminate", "live");
+        stageHost.innerHTML = "";
       })
       .then(function () {
         button.disabled = false;
         button.classList.remove("loading");
-        document.getElementById("uploadStatus").textContent = "";
+        clear.disabled = false;
       });
   }
 
@@ -580,11 +778,17 @@
     }).join("");
 
     host.querySelectorAll("[data-run]").forEach(function (btn) {
-      btn.addEventListener("click", function () { startRun(btn.dataset.run); });
+      btn.addEventListener("click", function () {
+        btn.classList.add("loading");
+        startRun(btn.dataset.run);
+      });
     });
     host.querySelectorAll("[data-del]").forEach(function (btn) {
       btn.addEventListener("click", function () { confirmDelete(btn.dataset.del, btn.dataset.uploaded === "1"); });
     });
+
+    stagger(host, ".card");
+    UI.animateIn(host);
   }
 
   function detRow(label, value) {
@@ -669,27 +873,116 @@
     var recent = state.runs.filter(function (r) {
       return r.status !== "running" && r.status !== "queued";
     }).slice(0, 3);
+    var shown = live.concat(recent);
 
-    if (!live.length && !recent.length) {
-      host.innerHTML = UI.state("empty", t("monitor.noRuns"), t("monitor.noRunsBody"));
-      return;
+    /* A running pipeline emits a progress event every few seconds, and this
+       view is what people watch while it does. Rebuilding eleven DAG nodes and
+       a card from innerHTML on each one is what made the page stutter -- and it
+       restarted every CSS transition mid-flight, so the progress bar could
+       never actually animate. Structure is rebuilt only when the *set* of runs
+       changes; progress moves through in-place updates. */
+    var structure = shown.map(function (r) { return r.run_id + ":" + r.status; }).join("|");
+    if (changed("monitor", structure)) {
+      if (!shown.length) {
+        host.innerHTML = UI.state("empty", t("monitor.noRuns"), t("monitor.noRunsBody"));
+        animateIn(host);
+        return;
+      }
+      host.innerHTML = shown.map(runMonitorCard).join("");
+      animateIn(host);
+
+      host.querySelectorAll("[data-cancel]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          btn.classList.add("loading");
+          api("/api/runs/" + encodeURIComponent(btn.dataset.cancel), { method: "DELETE" })
+            .then(function () { UI.toast("Cancelling…", "warning"); return poll(); })
+            .catch(function (e) { UI.toast(e.message, "error"); });
+        });
+      });
+      host.querySelectorAll("[data-see]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.activeRun = btn.dataset.see;
+          showView("results");
+        });
+      });
     }
 
-    host.innerHTML = live.concat(recent).map(runMonitorCard).join("");
+    shown.forEach(function (run) { updateMonitorCard(host, run); });
+  }
 
-    host.querySelectorAll("[data-cancel]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        api("/api/runs/" + encodeURIComponent(btn.dataset.cancel), { method: "DELETE" })
-          .then(function () { UI.toast("Cancelling…", "warning"); return poll(); })
-          .catch(function (e) { UI.toast(e.message, "error"); });
-      });
+  /** Move a running card forward without touching its structure. */
+  function updateMonitorCard(host, run) {
+    var card = host.querySelector('[data-run-card="' + cssEscape(run.run_id) + '"]');
+    if (!card) return;
+
+    var bar = card.querySelector(".progress > div");
+    if (bar) {
+      // Width is transitioned in CSS, so assigning it here animates rather
+      // than jumping -- which only works because the node survives the update.
+      bar.style.width = (run.percent || 0) + "%";
+      bar.parentNode.setAttribute("aria-valuenow", String(run.percent || 0));
+    }
+
+    var stage = card.querySelector("[data-stage]");
+    if (stage && stage.textContent !== (run.stage || "")) stage.textContent = run.stage || "";
+
+    var meta = card.querySelector("[data-elapsed]");
+    if (meta) {
+      meta.textContent = (run.percent || 0) + "% · " +
+        UI.duration(UI.elapsedSince(run.started_at)) + " elapsed";
+    }
+
+    var reached = {};
+    (run.stages || []).forEach(function (rule) { reached[rule] = true; });
+    var current = (run.stages || [])[(run.stages || []).length - 1] || null;
+
+    card.querySelectorAll("[data-rule]").forEach(function (node) {
+      var rule = node.dataset.rule;
+      var cls = "dag-node";
+      if (run.status === "completed") cls += " done";
+      else if (reached[rule] && rule !== current) cls += " done";
+      else if (rule === current && run.status === "running") cls += " current";
+      else if ((run.status === "failed" || run.status === "timed_out") && rule === current) {
+        cls += " failed";
+      }
+      if (node.className !== cls) {
+        node.className = cls;
+        var dot = node.querySelector(".dag-dot");
+        if (dot) {
+          var mark = cls.indexOf("done") > -1 ? "✓"
+                   : cls.indexOf("failed") > -1 ? "!" : dot.dataset.index;
+          if (dot.textContent !== mark) dot.textContent = mark;
+        }
+        // Only newly-completed nodes get the tick animation, and only once.
+        if (cls.indexOf("done") > -1 && !node.dataset.marked) {
+          node.dataset.marked = "1";
+          pulse(node.querySelector(".dag-dot"));
+        }
+      }
+      var time = node.querySelector(".dag-time");
+      if (time) {
+        var want = cls.indexOf("current") > -1 ? "running" : "";
+        if (time.textContent !== want) time.textContent = want;
+      }
     });
-    host.querySelectorAll("[data-see]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        state.activeRun = btn.dataset.see;
-        showView("results");
-      });
-    });
+
+    var log = card.querySelector(".log-stream");
+    if (log && run.recent_log && run.recent_log.length) {
+      var text = run.recent_log.join("\n");
+      if (log.dataset.text !== text) {
+        log.dataset.text = text;
+        log.innerHTML = run.recent_log.map(function (line) {
+          return "<div>" + esc(line) + "</div>";
+        }).join("");
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+  }
+
+  // CSS.escape is missing in a few of the browsers this may be demonstrated on,
+  // and run ids are [A-Za-z0-9-] anyway, so a conservative filter is enough.
+  function cssEscape(value) {
+    return String(value).replace(/[^A-Za-z0-9_-]/g, "");
   }
 
   function runMonitorCard(run) {
@@ -706,7 +999,10 @@
       else if (rule === currentRule && run.status === "running") cls = "current";
       else if (run.status === "failed" && rule === currentRule) cls = "failed";
 
-      return '<div class="dag-node ' + cls + '"><span class="dag-dot">' +
+      // data-rule and data-index are what updateMonitorCard drives, so a
+      // progress event moves the DAG without rebuilding it.
+      return '<div class="dag-node ' + cls + '" data-rule="' + esc(rule) +
+        '" style="--i:' + index + '"><span class="dag-dot" data-index="' + (index + 1) + '">' +
         (cls === "done" ? "✓" : cls === "failed" ? "!" : String(index + 1)) + "</span>" +
         '<span class="dag-label">' + esc(label) +
           '<span class="dag-rule">' + esc(rule) + "</span></span>" +
@@ -727,15 +1023,16 @@
           "Runs are executed one at a time because the pipeline already uses every core.") +
         '<div class="card-foot">' +
         UI.button(t("monitor.cancel"), { size: "sm", data: { cancel: run.run_id } }) + "</div>",
-        { size: "lg" });
+        { size: "lg", attrs: 'data-run-card="' + esc(run.run_id) + '"' });
     }
 
     var progress = run.status === "running"
-      ? '<div class="progress" role="progressbar" aria-valuenow="' + (run.percent || 0) +
+      ? '<div class="progress live" role="progressbar" aria-valuenow="' + (run.percent || 0) +
         '" aria-valuemin="0" aria-valuemax="100"><div style="width:' +
         (run.percent || 0) + '%"></div></div>' +
-        '<div class="row hint" style="margin:8px 0 16px"><span>' + esc(run.stage || "") +
-        "</span><span class=\"spacer\"></span><span>" + (run.percent || 0) + "% · " +
+        '<div class="row hint" style="margin:8px 0 16px"><span data-stage>' +
+        esc(run.stage || "") + "</span><span class=\"spacer\"></span>" +
+        "<span data-elapsed>" + (run.percent || 0) + "% · " +
         UI.duration(elapsed) + " elapsed</span></div>"
       : "";
 
@@ -760,7 +1057,7 @@
       (run.status === "running"
         ? UI.button(t("monitor.cancel"), { size: "sm", data: { cancel: run.run_id } }) : "") +
       (run.report ? UI.button("See results", { size: "sm", variant: "primary", data: { see: run.run_id } }) : "") +
-      "</div>", { size: "lg" });
+      "</div>", { size: "lg", attrs: 'data-run-card="' + esc(run.run_id) + '"' });
   }
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -863,6 +1160,18 @@
     document.getElementById("clearRuns").addEventListener("click", clearResults);
     wireExports(run);
     drawMap(run);
+
+    stagger(host, ".kpi");
+    stagger(host, "table.data tbody tr");
+    host.querySelectorAll(".table-wrap").forEach(function (node) {
+      node.classList.add("fresh");
+      // The row animation is for arrival only. Leaving the class on means a
+      // scroll or a sort restarts eighty animations, which reads as a fault.
+      setTimeout(function () { node.classList.remove("fresh"); }, 1400);
+    });
+    UI.animateIn(host);
+    countUpAll(host);
+    UI.growBars(host);
   }
 
   /* An eDNA run that finds nothing is a normal result, not a broken app. Saying
@@ -1205,6 +1514,15 @@
 
     var run = state.runs.filter(function (r) { return r.run_id === state.activeRun && r.report; })[0]
            || state.runs.filter(function (r) { return r.report; })[0];
+
+    // Recomputing site metrics for eighteen sites and rebuilding a 460px SVG
+    // every six seconds was most of what made this view feel heavy. Nothing
+    // here changes unless the run, the selection or the theme changes.
+    var signature = (run ? run.run_id : "-") + ":" +
+                    (run && state.analyses[run.run_id] ? "a" : "-") + ":" +
+                    state.selectedSites.join(",") + ":" + currentTheme() + ":" + I18n.language();
+    if (!changed("compare", signature)) return;
+
     if (!run) {
       host.innerHTML = UI.state("empty", t("state.noResults"), t("state.noResultsBody"));
       return;
@@ -1212,7 +1530,7 @@
 
     var analysis = state.analyses[run.run_id];
     if (!analysis) {
-      host.innerHTML = UI.card(UI.skeleton("block", 1)) ;
+      host.innerHTML = UI.card(UI.skeleton("block", 1));
       ensureAnalysis(run.run_id);
       return;
     }
@@ -1265,9 +1583,13 @@
         } else {
           state.selectedSites.splice(index, 1);
         }
+        invalidate("compare");
         renderCompare();
       });
     });
+
+    UI.animateIn(host);
+    Charts.animateRadar(host);
   }
 
   function ensureAnalysis(runId) {
@@ -1275,8 +1597,9 @@
     return api("/api/runs/" + encodeURIComponent(runId) + "/analysis")
       .then(function (body) {
         state.analyses[runId] = body;
-        if (activeViewId === "compare") renderCompare();
-        if (activeViewId === "alerts") renderAlerts();
+        invalidate("compare");
+        invalidate("alerts");
+        scheduleRender();
       })
       .catch(function () { /* the view shows its own empty state */ });
   }
@@ -1305,6 +1628,11 @@
 
     var run = state.runs.filter(function (r) { return r.run_id === state.activeRun && r.report; })[0]
            || state.runs.filter(function (r) { return r.report; })[0];
+
+    var signature = (run ? run.run_id : "-") + ":" +
+                    (run && state.alerts[run.run_id] ? "a" : "-") + ":" + I18n.language();
+    if (!changed("alerts", signature)) return;
+
     if (!run) {
       host.innerHTML = UI.state("empty", t("state.noResults"), t("state.noResultsBody"));
       return;
@@ -1314,8 +1642,14 @@
     if (!alerts) {
       host.innerHTML = UI.card(UI.skeleton("line", 4));
       api("/api/runs/" + encodeURIComponent(run.run_id) + "/alerts")
-        .then(function (body) { state.alerts[run.run_id] = body; renderAlerts(); })
-        .catch(function (e) { host.innerHTML = UI.errorState(e.message); });
+        .then(function (body) {
+          state.alerts[run.run_id] = body;
+          invalidate("alerts");
+          scheduleRender();
+        })
+        .catch(function (e) {
+          host.innerHTML = UI.errorState(e.message);
+        });
       return;
     }
 
@@ -1348,6 +1682,25 @@
         });
       });
     });
+
+    stagger(host, ".kpi");
+    stagger(host, ".grid > .card");
+    UI.animateIn(host);
+    countUpAll(host);
+    UI.growBars(host);
+  }
+
+  /** Give each match an --i so the CSS stagger has an index to work from. */
+  function stagger(root, selector) {
+    root.querySelectorAll(selector).forEach(function (node, index) {
+      node.style.setProperty("--i", Math.min(index, 12));
+    });
+  }
+
+  function countUpAll(root) {
+    root.querySelectorAll("[data-count]").forEach(function (node) {
+      UI.countUp(node, Number(node.dataset.count));
+    });
   }
 
   function alertCard(alert) {
@@ -1358,8 +1711,8 @@
         (alert.common_name ? '<span class="alert-common">' + esc(alert.common_name) + "</span>" : "") +
         "</div></div>" + UI.badge(alert.severity, alert.severity) + "</div>" +
         '<div class="alert-msg">' + esc(alert.message) + "</div>" +
-        '<div class="conf-row"><div class="meter"><span style="width:' +
-          Math.round((alert.confidence || 0) * 100) + '%"></span></div>' +
+        '<div class="conf-row"><div class="meter"><span data-width="' +
+          Math.round((alert.confidence || 0) * 100) + '%" style="width:0"></span></div>' +
           '<span class="hint">' + Number(alert.confidence).toFixed(2) + " " +
           esc(t("alerts.confidence")) + "</span></div>" +
         '<div class="alert-meta"><span><b>' + UI.num(alert.reads) + "</b> " +
@@ -1464,6 +1817,12 @@
 
     var health = state.health || { status: "unknown", checks: {} };
 
+    // This view used to fire two extra API calls and rebuild four cards on
+    // every six-second poll, whether or not anything had changed.
+    var signature = health.status + ":" + (health.failing || []).join(",") +
+                    ":" + currentTheme() + ":" + I18n.language();
+    if (!changed("settings", signature)) return;
+
     host.innerHTML =
       UI.card("<h2>" + esc(t("settings.appearance")) + "</h2>" +
         '<div style="margin-top:16px">' +
@@ -1557,9 +1916,49 @@
       if (state.activeRun) ensureAnalysis(state.activeRun);
 
       renderDatasets();
-      refreshActive();
+      scheduleRender();
     });
   }
+
+  /* Polling cadence follows the work, not the clock.
+
+     A fixed 6-second poll meant a machine sitting on the Analyze tab with
+     nothing running still woke up ten times a minute to re-fetch two payloads
+     and re-run signature comparisons -- on a mid-range Android that is a
+     measurable share of the battery and a visible share of the jank.
+
+     Server-sent events already deliver anything urgent; this is the safety net
+     underneath them, so it can afford to be slow when nothing is happening. */
+  var pollTimer = null;
+
+  function pollInterval() {
+    if (document.hidden) return 0;                       // stop entirely
+    if (state.runs.some(function (r) {
+      return r.status === "running" || r.status === "queued";
+    })) return 2500;                                     // something to watch
+    return 12000;                                        // idle
+  }
+
+  function schedulePoll() {
+    if (pollTimer) clearTimeout(pollTimer);
+    var delay = pollInterval();
+    if (!delay) return;
+    pollTimer = setTimeout(function () {
+      poll().then(schedulePoll, schedulePoll);
+    }, delay);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = null;
+      return;
+    }
+    // Coming back to a stale tab should feel instant, so catch up immediately
+    // rather than waiting out an interval.
+    poll().then(schedulePoll, schedulePoll);
+    pollHealth();
+  });
 
   function pollHealth() {
     return api("/api/health").then(function (health) {
@@ -1605,19 +2004,21 @@
     source.addEventListener("progress", function (event) {
       var payload = JSON.parse(event.data);
       var run = state.runs.filter(function (r) { return r.run_id === payload.run_id; })[0];
-      if (run) {
-        run.percent = payload.percent;
-        run.stage = payload.stage;
-        run.stages = payload.stages || run.stages;
-        run.recent_log = payload.recent_log || run.recent_log;
-        if (activeViewId === "monitor") renderMonitor();
-      }
+      if (!run) return;
+      run.percent = payload.percent;
+      run.stage = payload.stage;
+      run.stages = payload.stages || run.stages;
+      run.recent_log = payload.recent_log || run.recent_log;
+      // Coalesced into the next frame, and handled in place by
+      // updateMonitorCard rather than by rebuilding the card.
+      scheduleRender();
     });
 
     source.addEventListener("run", function () {
+      invalidate();
       resultsSignature = "";
       datasetSignature = "";
-      poll();
+      poll().then(schedulePoll, schedulePoll);
     });
 
     source.addEventListener("alert", function (event) {
@@ -1673,14 +2074,11 @@
       if (activeViewId === "compare") renderCompare();
     });
 
-    poll();
+    poll().then(schedulePoll, schedulePoll);
     pollHealth();
     connectEvents();
 
-    // A slow safety net beneath the event stream: if SSE is blocked by a proxy
-    // the UI still converges, just less promptly.
-    setInterval(poll, 6000);
-    setInterval(pollHealth, 30000);
+    setInterval(function () { if (!document.hidden) pollHealth(); }, 30000);
   }
 
   if (document.readyState === "loading") {

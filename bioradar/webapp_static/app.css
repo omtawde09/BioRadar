@@ -936,6 +936,203 @@ details[open] > summary::before { transform: rotate(90deg); }
   .grid { grid-template-columns: 1fr; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Motion
+   ──────────────────────────────────────────────────────────────────────────
+   The guide's rule: 100–300ms, ease-out, purposeful. Motion here answers one
+   of three questions — "did that register?", "where did this come from?", or
+   "is it still working?" — and nothing animates that answers none of them.
+
+   Everything below is switched off wholesale by prefers-reduced-motion at the
+   bottom of this file. Nothing here carries information.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Entrance. Elements rise a few pixels and fade; --enter-delay staggers a
+   list so it reads as arriving rather than appearing. */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.entering {
+  animation: enter var(--dur-card) var(--ease-out) backwards;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+/* View switching. The outgoing view is simply removed -- cross-fading two
+   full pages costs a composite of both and is what makes tab switches feel
+   heavy on a mid-range phone. */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.view.active { animation: view-in var(--dur-panel) var(--ease-out); }
+
+/* Inactive views are already display:none, so they cost nothing to lay out --
+   content-visibility here would add nothing and would hide their text from
+   find-in-page and the accessibility tree. Containment on the host is the part
+   that helps: it stops a re-render inside one view from invalidating layout for
+   the app bar and the sidebar around it. */
+#viewHost { contain: layout style; }
+
+/* A pulse for a step that has just completed. */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--alert-healthy) 60%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+.pulsing { animation: pulse-ring 620ms var(--ease-out); }
+
+/* Buttons: a scale nudge on press. Subtle enough to feel physical, small
+   enough not to reflow anything around it. */
+.btn:not(:disabled):active { transform: scale(.97); }
+.btn { transition: box-shadow var(--dur-hover) var(--ease-out),
+                   background-color var(--dur-hover) var(--ease-out),
+                   transform var(--dur-press) var(--ease-out); }
+.nav-item { transition: box-shadow var(--dur-hover) var(--ease-out),
+                        color var(--dur-hover) var(--ease-out),
+                        transform var(--dur-press) var(--ease-out); }
+.nav-item:active { transform: scale(.95); }
+
+/* The active nav item grows an accent rail. transform on a pseudo-element,
+   so no layout is touched. */
+.nav-item::after {
+  content: ""; position: absolute; left: 2px; top: 50%;
+  width: 3px; height: 26px; margin-top: -13px;
+  border-radius: 0 2px 2px 0; background: var(--accent-primary);
+  transform: scaleY(0); transform-origin: 50% 50%;
+  transition: transform var(--dur-card) var(--ease-out);
+}
+.nav-item[aria-current="page"]::after { transform: scaleY(1); }
+.tabbar .nav-item::after {
+  left: 50%; top: 0; margin: 0 0 0 -14px;
+  width: 28px; height: 3px; border-radius: 0 0 2px 2px;
+  transform: scaleX(0);
+}
+.tabbar .nav-item[aria-current="page"]::after { transform: scaleX(1); }
+
+/* Progress: a moving sheen while a run is live, so a bar that is between
+   rules still reads as working rather than stuck. */
+.progress > div { position: relative; overflow: hidden; }
+.progress.live > div::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent,
+              color-mix(in srgb, #fff 42%, transparent), transparent);
+  animation: sheen 1600ms linear infinite;
+}
+@keyframes sheen { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
+
+/* Indeterminate: for work whose duration is genuinely unknown. */
+.progress.indeterminate > div { width: 32% !important; animation: slide 1300ms var(--ease-panel) infinite; }
+@keyframes slide { from { margin-left: -32%; } to { margin-left: 100%; } }
+
+/* DAG nodes arrive in sequence when the card is first drawn. */
+.dag-node { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 30ms); }
+.dag-dot { transition: color var(--dur-card) var(--ease-out), box-shadow var(--dur-card) var(--ease-out); }
+.dag-node:not(:last-child)::after { transition: background-color var(--dur-panel) var(--ease-out); }
+
+/* Bars grow from zero; the row itself staggers. */
+.bar-row { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.bar-fill { transition: width 620ms var(--ease-out); }
+.meter > span { transition: width 620ms var(--ease-out); }
+
+/* Table rows fade in on first paint only -- re-sorting a long table with a
+   per-row animation looks like a fault, not a feature. */
+@keyframes row-in { from { opacity: 0; } to { opacity: 1; } }
+.table-wrap.fresh tbody tr {
+  animation: row-in 260ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+
+/* Radar: axes and web fade in, then each series draws its outline and fills. */
+@keyframes radar-web-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes radar-draw {
+  from { stroke-dashoffset: var(--len, 1200); fill-opacity: 0; }
+  to   { stroke-dashoffset: 0; fill-opacity: .16; }
+}
+.radar-svg .radar-web, .radar-svg .radar-axis, .radar-svg .radar-label, .radar-svg .radar-tick {
+  animation: radar-web-in var(--dur-panel) var(--ease-out) backwards;
+}
+.radar-svg .radar-series {
+  stroke-dasharray: var(--len, 1200);
+  animation: radar-draw 900ms var(--ease-out) backwards;
+  animation-delay: calc(160ms + var(--i, 0) * 110ms);
+}
+.radar-svg .radar-point {
+  animation: enter 300ms var(--ease-out) backwards;
+  animation-delay: calc(700ms + var(--i, 0) * 110ms);
+}
+
+/* Map pins drop in. transform-origin is the pin tip so it lands on its point. */
+@keyframes pin-drop {
+  from { opacity: 0; transform: translateY(-14px) scale(.85); }
+  to   { opacity: 1; transform: none; }
+}
+.site-pin { animation: pin-drop 340ms var(--ease-out) backwards; }
+.cluster-pin { animation: enter 300ms var(--ease-out) backwards; }
+
+/* Skeleton to content. */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.settled { animation: fade-in var(--dur-card) var(--ease-out); }
+
+/* Upload rows: state changes are a colour and a small slide, never a reflow. */
+.file-row { transition: background-color var(--dur-hover) var(--ease-out); }
+.file-row .tag { transition: background-color var(--dur-card) var(--ease-out); }
+.file-row.done { background: color-mix(in srgb, var(--alert-healthy) 12%, transparent); }
+.file-row.uploading { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
+.file-row.failed { background: color-mix(in srgb, var(--alert-invasive) 14%, transparent); }
+@keyframes row-out { to { opacity: 0; transform: translateX(-12px); height: 0; margin: 0; padding: 0; } }
+.file-row.removing { animation: row-out 180ms ease-in forwards; }
+
+.file-progress {
+  grid-column: 1 / -1; height: 3px; border-radius: 2px;
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  overflow: hidden;
+}
+.file-progress > span {
+  display: block; height: 100%; width: 0;
+  background: var(--accent-primary);
+  transition: width 180ms linear;
+}
+
+/* Upload stages: a checklist that fills in, so the wait after the bytes land
+   is legible instead of a frozen button. */
+.stages { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4); }
+.stage-row {
+  display: grid; grid-template-columns: 22px 1fr auto; gap: var(--space-3);
+  align-items: center; font-size: var(--text-sm); color: var(--text-disabled);
+  transition: color var(--dur-card) var(--ease-out);
+}
+.stage-row .mark {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: var(--surface-pressed); box-shadow: var(--neu-pressed);
+  transition: color var(--dur-card) var(--ease-out);
+}
+.stage-row.active { color: var(--text-primary); font-weight: 500; }
+.stage-row.active .mark { color: var(--accent-primary); box-shadow: var(--neu-raised-sm); }
+.stage-row.active .mark::after {
+  content: ""; position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--accent-primary); border-right-color: transparent;
+  animation: spin 800ms linear infinite;
+}
+.stage-row .mark { position: relative; }
+.stage-row.done { color: var(--text-secondary); }
+.stage-row.done .mark { color: var(--alert-healthy); }
+.stage-row .detail { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* KPI tiles rise in sequence. */
+.kpi { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
+
+/* Cards in a grid stagger the same way. */
+.grid > .card { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+
+/* Dropzone reacts to a dragged folder. */
+.dropzone { transition: box-shadow var(--dur-card) var(--ease-out), transform var(--dur-card) var(--ease-out); }
+.dropzone.over { transform: scale(1.01); }
+
+/* Detail panel and modal already transition; the backdrop blurs behind them
+   so the layer separation reads without a heavier overlay. */
+.backdrop { backdrop-filter: blur(2px); }
+
 /* ── Accessibility overrides ───────────────────────────────────────────── */
 
 /* WCAG 2.3.3. Motion here is decoration; nothing depends on it, so it can be

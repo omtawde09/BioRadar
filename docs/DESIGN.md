@@ -227,19 +227,87 @@ safely under the WCAG 2.3.1 three-flashes threshold.
 
 ---
 
+## Performance
+
+Smoothness here is mostly about **not doing work**, not about doing it faster.
+
+**Nothing re-renders unless its data changed.** Every view keeps a signature of
+what it last drew and returns immediately if it still matches. Before this, the
+Compare view recomputed metrics for eighteen sites and rebuilt a 460px SVG every
+six seconds; Alerts rebuilt ten cards; Settings rebuilt four cards *and* fired
+two extra API calls. A repeat render now costs **0.02 ms**.
+
+The exception that proves the rule: opening a view always repaints, because
+`mount()` has just replaced the container the previous render wrote into.
+
+**Renders are coalesced into one frame.** A poll response, a progress event and a
+view switch arriving together paint once, not three times.
+
+**The live pipeline updates in place.** A running job emits a progress event
+every few seconds. Rebuilding eleven DAG nodes from `innerHTML` each time was
+both expensive and self-defeating — it restarted every CSS transition mid-flight,
+so the progress bar could never actually animate. Structure is rebuilt only when
+the set of runs changes; progress moves through direct DOM updates.
+
+**Polling follows the work.** 2.5 s while a run is active, 12 s idle, and
+**nothing at all when the tab is hidden**, with an immediate catch-up on return.
+Server-sent events carry anything urgent, so the poll is only a safety net.
+
+**Uploads report real bytes.** `fetch` cannot report upload progress, so uploads
+go through `XMLHttpRequest`, which has had `upload.onprogress` for fifteen years.
+Per-file bars, an aggregate bar weighted by bytes rather than file count, live
+throughput and an ETA. After the bytes land, a four-step checklist covers the
+server-side work — integrity, primer detection, configuration — which previously
+left a disabled button and no explanation for several seconds.
+
+### One rule learned the hard way
+
+**An animation may never be the only thing that produces a correct value.**
+
+`requestAnimationFrame` does not fire in a backgrounded tab, and does not fire at
+all in some embedded browser panes. A count-up that stalls does not merely lose
+its animation — it leaves a KPI tile reading **0 when the answer is 16**. A
+render scheduler that queues on rAF alone latches its flag on the first missed
+frame and the UI never updates again.
+
+So `countUp`, `growBars` and `scheduleRender` all reach their end state through a
+timeout backstop as well as through frames, and `ci/check_integration.sh` fails
+the build if any of them loses it.
+
+---
+
 ## Motion
 
 100–300ms, `ease-out`, or `cubic-bezier(.4,0,.2,1)` for panels. Never bounce —
 springy easing reads as a toy in a tool someone makes decisions with.
 
+Motion answers one of three questions — *did that register?*, *where did this come
+from?*, *is it still working?* — and nothing animates that answers none of them.
+
 | Interaction | Duration |
 |---|---|
-| Button press | 100ms |
+| Button press (scale .97) | 100ms |
 | Button/card hover | 150ms / 200ms |
 | Modal open / close | 200ms / 150ms |
 | Right panel | 250ms |
 | Bottom sheet, toast, theme cross-fade | 300ms |
+| View entrance | 250ms |
+| List stagger | 45ms per item, capped at 10 |
+| KPI count-up | 900ms, ease-out cubic |
+| Bar and meter fill | 620ms |
+| Radar draw-in | 900ms, 110ms apart per series |
+| Map pin drop | 340ms |
+| DAG node completion pulse | 620ms |
+| Progress sheen | 1600ms loop |
 | Skeleton pulse | 1500ms loop |
+
+Two details worth knowing:
+
+- **The stagger is capped.** Past about ten items a per-item delay stops reading
+  as "the list is arriving" and starts reading as "the app is slow".
+- **The radar's dash length is measured, not guessed.** `getTotalLength()` needs
+  layout, so the CSS reads a `--len` custom property that JS sets after mount. A
+  constant would clip short outlines and leave long ones visibly waiting.
 
 All of it is switched off under `prefers-reduced-motion` (WCAG 2.3.3). Nothing
 here carries information, so it can go wholesale without loss.

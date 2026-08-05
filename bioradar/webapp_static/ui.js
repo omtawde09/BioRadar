@@ -101,7 +101,8 @@
     if (options.interactive) classes.push("interactive");
     if (options.className) classes.push(options.className);
     return '<div class="' + classes.join(" ") + '"' +
-      (options.id ? ' id="' + esc(options.id) + '"' : "") + ">" + content + "</div>";
+      (options.id ? ' id="' + esc(options.id) + '"' : "") +
+      (options.attrs ? " " + options.attrs : "") + ">" + content + "</div>";
   }
 
   /* ── Button ───────────────────────────────────────────────────────── */
@@ -147,9 +148,18 @@
       trend = '<div class="trend ' + esc(options.trend) + '">' + arrow + " " +
               esc(options.trendLabel || "") + "</div>";
     }
+    // A numeric tile counts up; a string one ("12.4%") is written directly,
+    // because animating a value the user cannot verify mid-flight is noise.
+    var raw = typeof value === "number" ? value
+            : (/^-?[\d,]+(\.\d+)?$/.test(String(value))
+                ? Number(String(value).replace(/,/g, "")) : null);
+    var inner = raw === null
+      ? esc(value)
+      : '<span data-count="' + raw + '">0</span>';
+
     return '<div class="' + classes.join(" ") + '">' +
       '<div class="k">' + esc(label) + "</div>" +
-      '<div class="v">' + esc(value) +
+      '<div class="v">' + inner +
         (options.unit ? '<span class="u">' + esc(options.unit) + "</span>" : "") +
       "</div>" + trend + "</div>";
   }
@@ -340,19 +350,140 @@
     options = options || {};
     if (!rows || !rows.length) return "";
     var total = rows.reduce(function (sum, r) { return sum + (r.value || 0); }, 0) || 1;
-    return '<div class="bars">' + rows.map(function (row) {
+    return '<div class="bars">' + rows.map(function (row, index) {
       var pct = (row.value / total) * 100;
-      return '<div class="bar-row">' +
+      // The target width lives in data-width so growBars() can start at zero
+      // and transition to it after the node is in the document.
+      return '<div class="bar-row" style="--i:' + index + '">' +
         '<span class="lbl" title="' + esc(row.label) + '">' + esc(row.label) + "</span>" +
-        '<span class="bar-track"><span class="bar-fill" style="width:' + pct.toFixed(2) +
-          "%;background:" + (row.color || categorical(row.label)) + '"></span></span>' +
+        '<span class="bar-track"><span class="bar-fill" data-width="' + pct.toFixed(2) +
+          '%" style="width:0%;background:' + (row.color || categorical(row.label)) +
+          '"></span></span>' +
         '<span class="val">' + (options.absolute ? num(row.value) : pct.toFixed(1) + "%") +
         "</span></div>";
     }).join("") + "</div>";
   }
 
+  /* ── Motion ───────────────────────────────────────────────────────────
+
+     All of it is presentation. Nothing here carries information that is not
+     also in the DOM, so `prefers-reduced-motion` can switch the lot off and
+     lose nothing -- which is why every helper checks it and returns early. */
+
+  function prefersReducedMotion() {
+    return !!(global.matchMedia &&
+              global.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  /**
+   * Stagger the direct children of a container into view.
+   *
+   * The delay is capped: past about ten items a per-item delay stops reading as
+   * "the list is arriving" and starts reading as "the app is slow", which is
+   * the opposite of what the animation is for.
+   */
+  function animateIn(container, selector) {
+    if (!container || prefersReducedMotion()) return;
+    var nodes = selector ? container.querySelectorAll(selector)
+                         : container.children;
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      node.style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
+      node.classList.remove("entering");
+      // Reading offsetWidth forces the class removal to take effect before it
+      // is re-added; without it the browser coalesces both and never replays
+      // the animation on a re-render.
+      void node.offsetWidth;
+      node.classList.add("entering");
+    }
+  }
+
+  function pulse(node) {
+    if (!node || prefersReducedMotion()) return;
+    node.classList.remove("pulsing");
+    void node.offsetWidth;
+    node.classList.add("pulsing");
+  }
+
+  /**
+   * Count a number up to its value.
+   *
+   * Specified in the guide's microinteraction table (1000ms, ease-out). Uses
+   * requestAnimationFrame rather than a timer so it stays in step with paint,
+   * and stops immediately when the tab is hidden -- an animation nobody is
+   * looking at is pure battery cost.
+   */
+  function countUp(node, target, duration) {
+    if (!node) return;
+    var value = Number(target) || 0;
+    if (prefersReducedMotion() || value === 0) {
+      node.textContent = num(value);
+      return;
+    }
+    var total = duration || 900;
+    var start = null;
+    var settled = false;
+    // Integers count as integers; a diversity index counts to two decimals.
+    var decimals = String(target).indexOf(".") > -1 ? 2 : 0;
+
+    function settle() {
+      if (settled) return;
+      settled = true;
+      node.textContent = format(value);
+    }
+
+    function frame(timestamp) {
+      if (settled) return;
+      if (document.hidden) { settle(); return; }
+      if (start === null) start = timestamp;
+      var progress = Math.min(1, (timestamp - start) / total);
+      // ease-out cubic: fast first, settling at the end.
+      var eased = 1 - Math.pow(1 - progress, 3);
+      node.textContent = format(value * eased);
+      if (progress < 1) requestAnimationFrame(frame);
+      else settled = true;
+    }
+
+    function format(n) {
+      return decimals ? n.toFixed(decimals) : num(Math.round(n));
+    }
+
+    requestAnimationFrame(frame);
+    // A backstop, because the failure mode of a stalled count-up is not a
+    // missing animation -- it is a KPI tile that reads 0 when the answer is 16.
+    // rAF is throttled in background tabs and absent in some embedded panes, so
+    // the true value must not depend on it.
+    setTimeout(settle, total + 250);
+  }
+
+  /** Grow bars and meters from zero once they are on screen. */
+  function growBars(container) {
+    if (!container) return;
+    var fills = container.querySelectorAll(".bar-fill[data-width], .meter > span[data-width]");
+    if (!fills.length) return;
+
+    function apply() {
+      fills.forEach(function (fill) {
+        if (fill.style.width !== fill.dataset.width) fill.style.width = fill.dataset.width;
+      });
+    }
+
+    if (prefersReducedMotion()) { apply(); return; }
+
+    fills.forEach(function (fill) { fill.style.width = "0%"; });
+    // Two frames so the zero width is committed before the target is set --
+    // one frame and the browser coalesces both into a single style change and
+    // the transition never runs.
+    requestAnimationFrame(function () { requestAnimationFrame(apply); });
+    // Same reasoning as countUp: a bar frozen at 0% misrepresents the data, so
+    // the end state cannot depend on frames being delivered.
+    setTimeout(apply, 200);
+  }
+
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
+    animateIn: animateIn, pulse: pulse, countUp: countUp, growBars: growBars,
+    prefersReducedMotion: prefersReducedMotion,
     elapsedSince: elapsedSince,
     icon: icon, card: card, button: button, badge: badge, kpi: kpi, toggle: toggle,
     state: state, errorState: errorState, skeleton: skeleton,

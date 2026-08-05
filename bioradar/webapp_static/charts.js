@@ -206,10 +206,36 @@
       head + "</thead><tbody>" + body + "</tbody></table></div>";
   }
 
+  /**
+   * Make the radar draw itself in.
+   *
+   * The dash length has to be the real perimeter of each polygon, and that is
+   * only knowable once the SVG is in the document -- `getTotalLength()` needs
+   * layout. So the CSS animation reads `--len`, and this sets it per series
+   * after mount. A guessed constant would either clip short outlines or leave
+   * long ones visibly waiting.
+   */
+  function animateRadar(root) {
+    if (!root || UI.prefersReducedMotion()) return;
+    var svg = root.querySelector(".radar-svg");
+    if (!svg) return;
+
+    svg.querySelectorAll(".radar-series").forEach(function (polygon, index) {
+      var length = 1200;
+      try { length = Math.ceil(polygon.getTotalLength()) || 1200; } catch (e) { /* jsdom */ }
+      polygon.style.setProperty("--len", length);
+      polygon.style.setProperty("--i", index);
+    });
+    svg.querySelectorAll(".radar-point").forEach(function (point, index) {
+      point.style.setProperty("--i", Math.floor(index / DIMENSIONS.length));
+    });
+  }
+
   global.BioRadarCharts = {
     DIMENSIONS: DIMENSIONS,
     siteMetrics: siteMetrics,
     normalise: normalise,
-    radar: radar
+    radar: radar,
+    animateRadar: animateRadar
   };
 })(window);

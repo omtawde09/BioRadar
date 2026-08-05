@@ -333,6 +333,34 @@ if tokens != expected:
 print('5 shadow tokens')
 "
 
+check "animations cannot strand the UI on a wrong value" $PYTHON -c "
+import re, sys
+from pathlib import Path
+# requestAnimationFrame does not fire in a backgrounded tab and does not fire
+# at all in some embedded browser panes. A count-up that stalls does not just
+# lose an animation -- it leaves a KPI tile reading 0 when the answer is 16,
+# and a bar frozen at 0%. Every helper that animates toward a final value must
+# therefore reach that value without depending on frames.
+source = Path('bioradar/webapp_static/ui.js').read_text(encoding='utf-8')
+def body(text, start):
+    # Up to the next top-level declaration, whichever comes first.
+    ends = [text.find(marker, start + 1)
+            for marker in (chr(10) + '  function ', chr(10) + '  global.')]
+    ends = [e for e in ends if e != -1]
+    return text[start:min(ends)] if ends else text[start:]
+for name in ('function countUp', 'function growBars'):
+    if 'setTimeout' not in body(source, source.index(name)):
+        sys.exit(f'{name} animates without a non-rAF backstop; a stalled frame '
+                 'loop would leave the wrong number on screen')
+app = Path('bioradar/webapp_static/app.js').read_text(encoding='utf-8')
+block = app[app.index('function scheduleRender'):]
+block = block[:block.index(chr(10) + '  }')]
+if 'setTimeout' not in block:
+    sys.exit('scheduleRender queues on rAF alone; a missed frame latches the '
+             'queued flag and the UI never updates again')
+print('count-up, bars and the render scheduler all settle without rAF')
+"
+
 check "no hardcoded hex colour outside the token block" $PYTHON -c "
 import re, sys
 from pathlib import Path
