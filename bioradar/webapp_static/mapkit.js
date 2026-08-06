@@ -182,22 +182,66 @@
     });
   };
 
+  /* ── Map Legend ─────────────────────────────────────────────────────── */
+
+  var MapLegendControl = L.Control.extend({
+    options: { position: "bottomright" },
+    onAdd: function (map) {
+      var container = L.DomUtil.create("div", "leaflet-bar map-legend-card");
+      container.style.background = "var(--bg-surface, #1e293b)";
+      container.style.color = "var(--text-primary, #f8fafc)";
+      container.style.padding = "10px 14px";
+      container.style.borderRadius = "8px";
+      container.style.boxShadow = "0 4px 12px rgba(0,0,0,0.45)";
+      container.style.fontSize = "12px";
+      container.style.lineHeight = "1.6";
+      container.style.border = "1px solid var(--border, #334155)";
+
+      container.innerHTML =
+        '<div style="font-weight:700;margin-bottom:6px;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-secondary,#94a3b8)">Map Legend</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;box-shadow:0 0 4px #ef4444"></span>' +
+          '<span><strong>Invasive Species</strong> (Alert)</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f97316;box-shadow:0 0 4px #f97316"></span>' +
+          '<span><strong>Threatened Taxa</strong> (Risk)</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#10b981;box-shadow:0 0 4px #10b981"></span>' +
+          '<span><strong>Native Community</strong> (Normal)</span>' +
+        '</div>';
+      return container;
+    }
+  });
+
   ClusterLayer.prototype._marker = function (point) {
-    var colour = (this.options.colorFor && this.options.colorFor(point)) || "#22d3a6";
+    var colour = "#10b981"; // Normal/Native green
+    if (point.has_invasive || point.highest_severity === "invasive") {
+      colour = "#ef4444"; // Invasive red
+    } else if (point.has_threatened || point.highest_severity === "threatened") {
+      colour = "#f97316"; // Threatened orange
+    } else if (this.options.colorFor) {
+      colour = this.options.colorFor(point) || "#10b981";
+    }
+
+    var symbol = (point.has_invasive || point.highest_severity === "invasive") ? "!" :
+                 ((point.has_threatened || point.highest_severity === "threatened") ? "🛡" : "•");
+
     var marker = L.marker([point.latitude, point.longitude], {
       title: point.site_id,
       keyboard: true,
       alt: "Sampling site " + point.site_id,
       icon: L.divIcon({
-        className: "site-pin",
-        html: '<svg viewBox="0 0 24 32" width="26" height="34" aria-hidden="true">' +
-              '<path d="M12 0C5.4 0 0 5.4 0 12c0 8.4 12 20 12 20s12-11.6 12-20c0-6.6-5.4-12-12-12z" ' +
-              'fill="' + colour + '" stroke="rgba(0,0,0,.55)" stroke-width="1.5"/>' +
-              '<circle cx="12" cy="12" r="4.5" fill="rgba(0,0,0,.65)"/></svg>',
-        iconSize: [26, 34], iconAnchor: [13, 34], popupAnchor: [0, -32]
+        className: "site-pin-marker",
+        html: '<svg viewBox="0 0 28 38" width="28" height="38" aria-hidden="true" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,0.5))">' +
+              '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.8 14 24 14 24s14-14.2 14-24C28 6.27 21.73 0 14 0z" fill="' + colour + '" stroke="#ffffff" stroke-width="1.8"/>' +
+              '<circle cx="14" cy="14" r="7.5" fill="#ffffff"/>' +
+              '<text x="14" y="18" text-anchor="middle" font-size="11" font-weight="900" fill="' + colour + '">' + symbol + '</text></svg>',
+        iconSize: [28, 38], iconAnchor: [14, 38], popupAnchor: [0, -36]
       })
     });
-    if (this.options.popupFor) marker.bindPopup(this.options.popupFor(point), { maxWidth: 300 });
+    if (this.options.popupFor) marker.bindPopup(this.options.popupFor(point), { maxWidth: 320 });
     if (this.options.onSelect) {
       marker.on("click", function () { this.options.onSelect(point); }.bind(this));
     }
@@ -206,22 +250,24 @@
 
   ClusterLayer.prototype._cluster = function (members) {
     var lat = 0, lon = 0, species = 0;
+    var hasInvasive = false, hasThreatened = false;
     members.forEach(function (m) {
       lat += m.latitude; lon += m.longitude; species += m.species_count || 0;
+      if (m.has_invasive || m.highest_severity === "invasive") hasInvasive = true;
+      if (m.has_threatened || m.highest_severity === "threatened") hasThreatened = true;
     });
     lat /= members.length; lon /= members.length;
-    // Size grows with the square root of the count: linear sizing makes a
-    // 40-point cluster forty times the area of a single point and swallows the
-    // map. Area proportional to count is the perceptually honest scaling.
-    var size = Math.min(56, 30 + Math.sqrt(members.length) * 6);
-    var colour = UI.heat(Math.min(1, members.length / 25));
+
+    var colour = hasInvasive ? "#ef4444" : (hasThreatened ? "#f97316" : "#10b981");
 
     var marker = L.marker([lat, lon], {
       icon: L.divIcon({
-        className: "cluster-pin",
-        html: '<div class="cluster-bubble" style="width:' + size + "px;height:" + size +
-              "px;background:" + colour + '">' + members.length + "</div>",
-        iconSize: [size, size], iconAnchor: [size / 2, size / 2]
+        className: "cluster-pin-marker",
+        html: '<svg viewBox="0 0 34 46" width="34" height="46" aria-hidden="true" style="filter:drop-shadow(0 4px 8px rgba(0,0,0,0.55))">' +
+              '<path d="M17 0C7.6 0 0 7.6 0 17c0 12 17 29 17 29s17-17 17-29C34 7.6 26.4 0 17 0z" fill="' + colour + '" stroke="#ffffff" stroke-width="2"/>' +
+              '<circle cx="17" cy="17" r="11" fill="#ffffff"/>' +
+              '<text x="17" y="21" text-anchor="middle" font-size="12" font-weight="900" fill="#0f172a">' + members.length + '</text></svg>',
+        iconSize: [34, 46], iconAnchor: [17, 46]
       }),
       title: members.length + " sampling sites"
     });
@@ -229,8 +275,6 @@
     var self = this;
     marker.on("click", function () {
       var bounds = L.latLngBounds(members.map(function (m) { return [m.latitude, m.longitude]; }));
-      // A cluster of points at one coordinate cannot be split by zooming, so
-      // show its contents instead of zooming forever.
       if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
         marker.bindPopup(
           '<div class="pop"><div class="pop-site">' + members.length + " sites here</div>" +
@@ -249,6 +293,7 @@
     );
     return marker;
   };
+
 
   /* ── Heatmap ──────────────────────────────────────────────────────────
      A canvas overlay: each point paints a radial alpha gradient, the
@@ -538,8 +583,10 @@
     prefersDarkTiles: prefersDarkTiles,
     FullscreenControl: FullscreenControl,
     MeasureControl: MeasureControl,
+    MapLegendControl: MapLegendControl,
     ClusterLayer: ClusterLayer,
     HeatLayer: HeatLayer,
     timeline: timeline
   };
 })(window);
+

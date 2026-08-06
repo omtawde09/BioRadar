@@ -67,9 +67,12 @@ def test_nlg_executive_briefing():
         "detections": 2,
     }
     briefing = nlg_insights.generate_executive_briefing(analysis_mock, "Test Survey")
-    assert "Test Survey" in briefing["dataset_name"]
-    assert briefing["key_metrics"]["invasive_count"] == 1
-    assert len(briefing["recommended_actions"]) >= 1
+    assert "TESTSURVEY" in briefing["report_header"]["doc_id"]
+    assert briefing["executive_summary"]["kpis"]["invasive_taxa"] == 1
+
+    assert len(briefing["threat_matrix"]) >= 1
+    assert len(briefing["action_plan"]) >= 1
+
 
 
 def test_extinction_risk_ml():

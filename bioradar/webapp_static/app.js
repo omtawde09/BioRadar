@@ -1396,20 +1396,22 @@
     L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
     map.addControl(new MapKit.FullscreenControl());
     map.addControl(new MapKit.MeasureControl());
+    map.addControl(new MapKit.MapLegendControl());
 
     map.on("baselayerchange", function (event) {
       if (maps[run.run_id]) maps[run.run_id].activeBasemap = event.name;
     });
 
-    var maxSpecies = points.reduce(function (m, p) {
-      return Math.max(m, p.species_count || 0);
-    }, 0) || 1;
-
     var cluster = new MapKit.ClusterLayer(points, {
-      colorFor: function (point) { return UI.sequential((point.species_count || 0) / maxSpecies); },
+      colorFor: function (point) {
+        if (point.has_invasive || point.highest_severity === "invasive") return "#ef4444";
+        if (point.has_threatened || point.highest_severity === "threatened") return "#f97316";
+        return "#10b981";
+      },
       popupFor: function (point) { return popupHtml(point); },
       onSelect: function (point) { openSiteDetail(run, point); }
     }).addTo(map);
+
 
     var heat = new MapKit.HeatLayer(points, {
       weight: function (p) { return p.species_count || 1; }

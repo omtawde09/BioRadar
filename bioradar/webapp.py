@@ -796,6 +796,24 @@ def map_points(run_id: str) -> List[Dict[str, Any]]:
                         latitude=latitude, longitude=longitude)
             continue
 
+        site_species_list = [s for s in result["species"] if row["sample_id"] in s["samples"]]
+        has_inv = False
+        has_thr = False
+        try:
+            from bioradar.ai import knowledge_base
+            for sp in site_species_list:
+                prof = knowledge_base.get_species_profile(sp.get("name", ""))
+                if prof:
+                    st = prof.get("india_status", "")
+                    if st == "invasive":
+                        has_inv = True
+                    elif "endangered" in st or "vulnerable" in st or "threatened" in st:
+                        has_thr = True
+        except Exception:
+            pass
+
+        sev = "invasive" if has_inv else ("threatened" if has_thr else "normal")
+
         taxa = [
             {"name": s["name"], "reads": s["reads"], "phylum": s["phylum"]}
             for s in result["species"]
@@ -811,8 +829,12 @@ def map_points(run_id: str) -> List[Dict[str, Any]]:
             "species_count": summary["species_count"],
             "shannon": summary["shannon"],
             "top_taxa": taxa,
+            "has_invasive": has_inv,
+            "has_threatened": has_thr,
+            "highest_severity": sev,
         })
     return points
+
 
 
 def run_analysis_payload(run_id: str) -> Optional[Dict[str, Any]]:
