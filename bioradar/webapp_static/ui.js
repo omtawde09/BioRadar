@@ -493,6 +493,26 @@
     setTimeout(apply, 200);
   }
 
+  function aiBriefing(data) {
+    if (!data) return "";
+    var pars = (data.paragraphs || []).map(function (p) {
+      return '<p style="margin:0 0 8px 0;line-height:1.5">' + esc(p) + '</p>';
+    }).join("");
+    var recs = (data.recommended_actions || []).map(function (r) {
+      return '<li style="margin-bottom:6px"><strong>Action:</strong> ' + esc(r) + '</li>';
+    }).join("");
+
+    return card(
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+        '<span style="font-size:18px">🤖</span>' +
+        '<h2 style="margin:0;font-size:18px">AI Executive Briefing &amp; Decision Support</h2>' +
+      '</div>' +
+      '<div style="font-size:14px;color:var(--text-secondary)">' + pars + '</div>' +
+      (recs ? '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><ul style="margin:0;padding-left:20px;font-size:13px">' + recs + '</ul></div>' : ''),
+      { className: "ai-briefing-card", size: "lg" }
+    );
+  }
+
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
     animateIn: animateIn, pulse: pulse, countUp: countUp, growBars: growBars,
@@ -504,6 +524,8 @@
     toast: toast, modal: modal, closeModal: closeModal,
     openPanel: openPanel, closePanel: closePanel,
     categorical: categorical, categoricalAt: categoricalAt,
-    sequential: sequential, heat: heat, cssVar: cssVar, bars: bars
+    sequential: sequential, heat: heat, cssVar: cssVar, bars: bars,
+    aiBriefing: aiBriefing
   };
 })(window);
+

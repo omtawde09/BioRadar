@@ -1141,7 +1141,9 @@
         UI.kpi(t("results.detections"), UI.num(report.detections)) +
         UI.kpi(t("results.unnamed"), report.placeholders, { color: "rare" }) +
       "</div>" +
+      '<div id="aiBriefingHost-' + esc(run.run_id) + '"></div>' +
       emptyResultNotice(report) +
+
       UI.card('<div class="map-toolbar" id="mapToolbar-' + esc(run.run_id) + '"></div>' +
               '<div class="map" id="map-' + esc(run.run_id) + '"></div>' +
               '<div id="timeline-' + esc(run.run_id) + '" style="margin-top:12px"></div>',
@@ -1168,6 +1170,15 @@
         renderResults();
       });
     }
+
+    fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/nlg-summary")
+      .then(function (res) { return res.json(); })
+      .then(function (briefing) {
+        var el = document.getElementById("aiBriefingHost-" + run.run_id);
+        if (el) el.innerHTML = UI.aiBriefing(briefing);
+      })
+      .catch(function () {});
+
     document.getElementById("clearRuns").addEventListener("click", clearResults);
     wireExports(run);
     drawMap(run);

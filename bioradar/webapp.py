@@ -958,6 +958,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/events":
             return self._stream_events()
 
+        if path.startswith("/api/species/") and path.endswith("/extinction-risk"):
+            species_name = path[len("/api/species/"): -len("/extinction-risk")].strip()
+            from bioradar.ai import extinction_risk
+            return self._json(200, extinction_risk.predict_extinction_risk(species_name))
+
         if path.startswith("/api/runs/"):
             return self._run_route(path[len("/api/runs/"):])
 
@@ -974,9 +979,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(404, {"error": "unknown run"})
 
         if len(parts) == 1:
-            return self._json(200, run_summary(job))
+            return self._json(200, run_summary(job, include_events=True))
 
         section = parts[1]
+        query = parse_qs(urlparse(self.path).query)
 
         if section == "report":
             with _ANALYSIS_LOCK:
@@ -1000,6 +1006,34 @@ class Handler(BaseHTTPRequestHandler):
 
         if section == "alerts":
             return self._json(200, run_alerts(run_id))
+
+        if section == "nlg-summary":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no analysis yet"})
+            from bioradar.ai import nlg_insights
+            return self._json(200, nlg_insights.generate_executive_briefing(cached["analysis"], cached["entry"].get("name", run_id)))
+
+        if section == "spread-prediction":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no analysis yet"})
+            from bioradar.ai import spread_prediction
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            points = map_points(run_id)
+            return self._json(200, spread_prediction.forecast_invasive_spread(species_param, points))
+
+        if section == "sampling-recommendations":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no analysis yet"})
+            from bioradar.ai import sampling_optimizer
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            points = map_points(run_id)
+            return self._json(200, sampling_optimizer.recommend_sampling_locations(species_param, points))
 
         if section == "export" and len(parts) > 2:
             return self._export(run_id, parts[2])
@@ -1188,10 +1222,39 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_finalize()
         if path == "/api/verifications":
             return self._handle_verification()
+        if path == "/api/verifications/cv":
+            return self._handle_cv_verification()
         if path == "/api/runs":
             return self._handle_start_run()
 
         self._json(404, {"error": "not found"})
+
+    def _handle_cv_verification(self) -> None:
+        body = self._read_json()
+        if not body:
+            return
+
+        photo = body.get("photo", "field_photo.jpg")
+        target_species = body.get("scientific_name", "Clarias gariepinus")
+        site_id = body.get("site_id", "MANDOVI")
+        observer = body.get("observer", "Field Officer")
+
+        from bioradar.ai import cv_verifier
+        res = cv_verifier.predict_species_from_photo(photo, target_species)
+
+        # Record in append-only verification ledger if confirmed
+        if res["is_confirmed"]:
+            verification.record(
+                scientific_name=target_species,
+                site_id=site_id,
+                outcome=verification.CONFIRMED,
+                observer=observer,
+                notes=f"Auto-verified via Computer Vision (TFLite MobileNetV3) confidence {res['confidence']:.2f}",
+                photo=photo,
+            )
+
+        return self._json(200, res)
+
 
     def _handle_start_run(self) -> None:
         try:
