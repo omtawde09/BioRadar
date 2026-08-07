@@ -1030,12 +1030,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, run_alerts(run_id))
 
         if section == "nlg-summary":
-            with _ANALYSIS_LOCK:
-                cached = _ANALYSIS_CACHE.get(run_id)
-            if not cached:
-                return self._json(404, {"error": "no analysis yet"})
+            payload = run_analysis_payload(run_id)
+            if payload and payload.get("report"):
+                analysis_dict = payload["report"]
+            else:
+                with _ANALYSIS_LOCK:
+                    cached = _ANALYSIS_CACHE.get(run_id)
+                analysis_dict = cached["analysis"] if cached else {}
+            dataset_label = job.summary().get("dataset_name") or run_id
             from bioradar.ai import nlg_insights
-            return self._json(200, nlg_insights.generate_executive_briefing(cached["analysis"], cached["entry"].get("name", run_id)))
+            return self._json(200, nlg_insights.generate_executive_briefing(analysis_dict, dataset_label))
+
 
         if section == "spread-prediction":
             with _ANALYSIS_LOCK:
