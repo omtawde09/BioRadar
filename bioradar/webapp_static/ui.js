@@ -435,9 +435,19 @@
     var threatRows = threats.map(function (t) {
       var sitesStr = (t.sites || []).join(", ") || "All sites";
       var badgeBg = t.severity_color === "#ef4444" ? "#ef444420" : "#f9731620";
+      var prob = t.establishment_prob !== undefined ? t.establishment_prob : 85;
+      var probBar =
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<div style="background:var(--border);height:6px;width:60px;border-radius:3px;overflow:hidden">' +
+            '<div style="background:' + t.severity_color + ';width:' + prob + '%;height:100%"></div>' +
+          '</div>' +
+          '<span style="font-size:11px;font-weight:700;color:' + t.severity_color + '">' + prob + '%</span>' +
+        '</div>';
+
       return '<tr style="border-bottom:1px solid var(--border)">' +
         '<td style="padding:10px 12px"><strong>' + esc(t.common_name || t.scientific_name) + '</strong><br><span style="font-size:11px;font-style:italic;color:var(--text-secondary)">' + esc(t.scientific_name) + '</span></td>' +
         '<td style="padding:10px 12px"><span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:' + badgeBg + ';color:' + t.severity_color + '">' + esc(t.severity_badge) + '</span></td>' +
+        '<td style="padding:10px 12px">' + probBar + '</td>' +
         '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(t.reads ? t.reads.toLocaleString() : "0") + ' reads</td>' +
         '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(sitesStr) + '</td>' +
         '<td style="padding:10px 12px;font-size:11px;color:var(--text-secondary)">' + esc(t.legal_status || "—") + '</td>' +
@@ -446,13 +456,14 @@
 
     var threatTableHtml = threats.length ?
       '<div style="margin-top:18px">' +
-        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Species Threat Assessment Matrix</h4>' +
+        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Species Threat Assessment Matrix (ML Establishment Risk)</h4>' +
         '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface)">' +
           '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;color:var(--text-primary)">' +
             '<thead style="background:var(--bg-card);border-bottom:1px solid var(--border)">' +
               '<tr>' +
                 '<th style="padding:10px 12px;color:var(--text-secondary)">Species</th>' +
-                '<th style="padding:10px 12px;color:var(--text-secondary)">Status</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">ML Risk Classification</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Establishment Prob.</th>' +
                 '<th style="padding:10px 12px;color:var(--text-secondary)">Abundance</th>' +
                 '<th style="padding:10px 12px;color:var(--text-secondary)">Sites</th>' +
                 '<th style="padding:10px 12px;color:var(--text-secondary)">Legal Backing</th>' +
@@ -462,6 +473,7 @@
           '</table>' +
         '</div>' +
       '</div>' : "";
+
 
     var auditHtml =
       '<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">' +

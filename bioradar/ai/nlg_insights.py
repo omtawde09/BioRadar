@@ -124,20 +124,37 @@ def generate_executive_briefing(
         p4 = "PROTECTED TAXA SCREENING: No endangered or vulnerable taxa were recorded in current sequence reads."
 
     # Build Structured Threat Matrix
+    from bioradar.ai import ias_model
     threat_matrix = []
     for s, p in invasive_species + endangered_species:
         name = s.get("name") or s.get("scientific_name") or ""
         reads = s.get("reads", 0)
-        sites = s.get("sites") or [s.get("site_id", "MANDOVI")]
+        sites = s.get("sites") or [s.get("site_id", "GOA-MANDOVI")]
         is_inv = p.get("india_status") == "invasive"
+        
+        ml_prediction = {}
+        if is_inv:
+            try:
+                ml_prediction = ias_model.predict_establishment_risk(
+                    species_name=name,
+                    site_name=sites[0] if isinstance(sites, (list, tuple)) and sites else "Mandovi Estuary",
+                    read_count=reads,
+                    total_reads=total_detections or 4694
+                )
+            except Exception:
+                ml_prediction = {}
+
         threat_matrix.append({
             "scientific_name": name,
             "common_name": p.get("common_name", name),
-            "severity_badge": "INVASIVE" if is_inv else "PROTECTED",
-            "severity_color": "#ef4444" if is_inv else "#f97316",
+            "severity_badge": ml_prediction.get("risk_badge") if is_inv else "PROTECTED",
+            "severity_color": ml_prediction.get("severity_color") if is_inv else "#f97316",
+            "establishment_prob": ml_prediction.get("establishment_probability", 85.0 if is_inv else 15.0),
             "reads": reads,
             "sites": list(sites) if isinstance(sites, (set, list, tuple)) else [str(sites)],
             "legal_status": p.get("legal_status", "Wildlife Protection Act 1972"),
+            "recommended_action": ml_prediction.get("recommended_action", ""),
+            "threat_drivers": ml_prediction.get("threat_drivers", []),
             "ecological_threat": p.get("ecological_threat", "Habitat disruption"),
         })
 

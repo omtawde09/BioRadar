@@ -982,8 +982,16 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith("/api/species/") and path.endswith("/extinction-risk"):
             species_name = path[len("/api/species/"): -len("/extinction-risk")].strip()
+            from urllib.parse import unquote
             from bioradar.ai import extinction_risk
-            return self._json(200, extinction_risk.predict_extinction_risk(species_name))
+            return self._json(200, extinction_risk.predict_extinction_risk(unquote(species_name)))
+
+        if path.startswith("/api/species/") and path.endswith("/establishment-risk"):
+            species_name = path[len("/api/species/"): -len("/establishment-risk")].strip()
+            from urllib.parse import unquote
+            from bioradar.ai import ias_model
+            return self._json(200, ias_model.predict_establishment_risk(unquote(species_name)))
+
 
         if path.startswith("/api/runs/"):
             return self._run_route(path[len("/api/runs/"):])
@@ -1040,6 +1048,18 @@ class Handler(BaseHTTPRequestHandler):
             dataset_label = job.summary().get("dataset_name") or run_id
             from bioradar.ai import nlg_insights
             return self._json(200, nlg_insights.generate_executive_briefing(analysis_dict, dataset_label))
+
+        if section == "invasive-risk":
+            payload = run_analysis_payload(run_id)
+            if payload and payload.get("report"):
+                analysis_dict = payload["report"]
+            else:
+                with _ANALYSIS_LOCK:
+                    cached = _ANALYSIS_CACHE.get(run_id)
+                analysis_dict = cached["analysis"] if cached else {}
+            from bioradar.ai import ias_model
+            return self._json(200, {"invasive_risks": ias_model.predict_all_invasives_for_run(analysis_dict)})
+
 
 
         if section == "spread-prediction":
