@@ -1395,8 +1395,9 @@
         detectRetina: true, keepBuffer: 3, updateWhenIdle: false
       });
     });
-    var initial = MapKit.prefersDarkTiles() ? "Dark" : "Light";
+    var initial = "Light";
     layers[initial].addTo(map);
+
 
     // The view goes first. Every layer and control below projects coordinates
     // to pixels, and Leaflet refuses to do that on a map with no centre --

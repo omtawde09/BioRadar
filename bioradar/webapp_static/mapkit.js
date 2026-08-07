@@ -538,33 +538,32 @@
     var self = this;
 
     (this.corridors || []).forEach(function (corridor) {
-      // 1. Water Body Shoreline Boundary Polygon
+      // 1. Water Body Shoreline Boundary Edge
       var wPoly = corridor.water_boundary_polygon || [];
       if (wPoly.length >= 3) {
         var shoreline = L.polygon(wPoly, {
           color: "#0284c7",
-          weight: 2,
-          opacity: 0.85,
-          dashArray: "4, 4",
+          weight: 1.5,
+          opacity: 0.65,
           fillColor: "#0284c7",
-          fillOpacity: 0.08
+          fillOpacity: 0.05
         });
-        shoreline.bindTooltip("<strong>" + UI.esc(corridor.waterway_name || "Water Body Boundary") + "</strong><br>Shoreline Boundary Edge", { direction: "top" });
+        shoreline.bindTooltip("<strong>" + UI.esc(corridor.waterway_name || "Water Body Shoreline") + "</strong><br>Shoreline Boundary Edge", { direction: "top" });
         self.group.addLayer(shoreline);
       }
 
-      // 2. Water-Constrained Spread Zone Polygons
+      // 2. High-Precision Water-Constrained Spread Zone Polygons
       var zones = corridor.spread_zones || [];
       zones.forEach(function (z) {
         if (z.polygon_coords && z.polygon_coords.length >= 3) {
           var zonePoly = L.polygon(z.polygon_coords, {
             color: z.color || "#ef4444",
-            weight: 1.5,
-            opacity: 0.75,
+            weight: 1.2,
+            opacity: 0.65,
             fillColor: z.color || "#ef4444",
-            fillOpacity: z.fill_opacity || 0.35
+            fillOpacity: z.fill_opacity || 0.28
           });
-          var bracketLabel = z.time_bracket === "1-3_months" ? "1–3 Months (Immediate Front)" :
+          var bracketLabel = z.time_bracket === "1-3_months" ? "1–3 Months (Immediate Water Front)" :
                             (z.time_bracket === "3-6_months" ? "3–6 Months (Intermediate Front)" :
                             (z.time_bracket === "6-12_months" ? "6–12 Months (Expanding Front)" : "12+ Months (Distal Front)"));
           zonePoly.bindTooltip(
@@ -577,7 +576,7 @@
         }
       });
 
-      // 3. Water Corridor Waypoints & Flow Polylines
+      // 3. Water Corridor Waypoints & Flow Lines
       var waypoints = corridor.waypoints || [];
       if (waypoints.length >= 2) {
         for (var i = 1; i < waypoints.length; i++) {
@@ -588,8 +587,8 @@
 
           var polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
             color: color,
-            weight: 4,
-            opacity: 0.95,
+            weight: 3.5,
+            opacity: 0.90,
             lineCap: "round",
             lineJoin: "round"
           });
@@ -604,7 +603,7 @@
           self.group.addLayer(polyline);
 
           var waypointMarker = L.circleMarker([p2.lat, p2.lon], {
-            radius: 4.5,
+            radius: 4.0,
             fillColor: color,
             color: "#ffffff",
             weight: 1.5,
@@ -623,6 +622,7 @@
       }
     });
   };
+
 
 
   /* ── Time slider ──────────────────────────────────────────────────────
