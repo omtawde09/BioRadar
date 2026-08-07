@@ -1044,8 +1044,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(404, {"error": "no analysis yet"})
             from bioradar.ai import spread_prediction
             species_param = query.get("species", ["Clarias gariepinus"])[0]
+            try:
+                months_param = int(query.get("months", [6])[0])
+            except (ValueError, IndexError):
+                months_param = 6
             points = map_points(run_id)
-            return self._json(200, spread_prediction.forecast_invasive_spread(species_param, points))
+            return self._json(200, spread_prediction.forecast_invasive_spread(species_param, points, months_ahead=months_param))
+
 
         if section == "sampling-recommendations":
             with _ANALYSIS_LOCK:

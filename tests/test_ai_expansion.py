@@ -80,6 +80,8 @@ def test_extinction_risk_ml():
     assert "Endangered" in prediction["predicted_category"]
     assert prediction["confidence_score"] > 0.75
     assert len(prediction["explanation"]["attributions"]) >= 1
+    assert "status_quo" in prediction["pva_scenarios"]
+    assert len(prediction["pva_scenarios"]["status_quo"]["trajectory"]) == 11
 
 
 def test_spread_prediction_simulation():
@@ -88,6 +90,8 @@ def test_spread_prediction_simulation():
     assert forecast["months_ahead"] == 6
     assert len(forecast["predictions"]) == 1
     assert forecast["predictions"][0]["spread_distance_km"] > 0.0
+    assert len(forecast["hydro_corridors"]) >= 1
+    assert len(forecast["hydro_corridors"][0]["waypoints"]) >= 2
 
 
 def test_cv_field_verification():
@@ -100,4 +104,6 @@ def test_sampling_recommendations():
     sites = [{"site_id": "VEMBANAD", "latitude": 9.6000, "longitude": 76.4000, "reads": 1500}]
     recs = sampling_optimizer.recommend_sampling_locations("Oreochromis mossambicus", sites)
     assert recs["recommended_count"] >= 1
-    assert recs["recommendations"][0]["detection_probability_pct"] > 0
+    assert recs["recommendations"][0]["composite_priority_score"] >= 50
+    assert recs["recommendations"][0]["complementarity_gain"] > 0
+

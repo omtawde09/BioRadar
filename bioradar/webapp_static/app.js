@@ -1179,6 +1179,18 @@
       })
       .catch(function () {});
 
+    fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/spread-prediction?months=6")
+      .then(function (res) { return res.json(); })
+      .then(function (spreadData) {
+        if (spreadData && spreadData.hydro_corridors && maps[run.run_id]) {
+          var entry = maps[run.run_id];
+          if (entry.hydroLayer) entry.map.removeLayer(entry.hydroLayer);
+          entry.hydroLayer = new MapKit.HydroCorridorLayer(spreadData.hydro_corridors).addTo(entry.map);
+        }
+      })
+      .catch(function () {});
+
+
     document.getElementById("clearRuns").addEventListener("click", clearResults);
     wireExports(run);
     drawMap(run);

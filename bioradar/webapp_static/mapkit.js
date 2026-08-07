@@ -508,6 +508,83 @@
     }
   });
 
+  /* ── Hydro Corridor Network Layer ────────────────────────────────────── */
+
+  function HydroCorridorLayer(corridorData, options) {
+    this.corridors = corridorData || [];
+    this.options = options || {};
+    this.group = L.layerGroup();
+    this._map = null;
+  }
+
+  HydroCorridorLayer.prototype.addTo = function (map) {
+    this._map = map;
+    this.group.addTo(map);
+    this.render();
+    return this;
+  };
+
+  HydroCorridorLayer.prototype.remove = function () {
+    if (this._map) {
+      this.group.clearLayers();
+      this._map.removeLayer(this.group);
+    }
+    return this;
+  };
+
+  HydroCorridorLayer.prototype.render = function () {
+    if (!this._map) return;
+    this.group.clearLayers();
+    var self = this;
+
+    (this.corridors || []).forEach(function (corridor) {
+      var waypoints = corridor.waypoints || [];
+      if (waypoints.length < 2) return;
+
+      for (var i = 1; i < waypoints.length; i++) {
+        var p1 = waypoints[i - 1];
+        var p2 = waypoints[i];
+        var color = p2.color || "#ef4444";
+        var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo") : "Spread Front";
+
+        var polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+          color: color,
+          weight: 5,
+          opacity: 0.88,
+          dashArray: p2.time_bracket === "12+_months" ? "6, 6" : null,
+          lineCap: "round",
+          lineJoin: "round"
+        });
+
+        polyline.bindTooltip(
+          "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
+          "Arrival Front: " + timeLabel + " (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
+          "Risk: " + (p2.colonisation_risk || "HIGH"),
+          { direction: "top" }
+        );
+
+        self.group.addLayer(polyline);
+
+        var waypointMarker = L.circleMarker([p2.lat, p2.lon], {
+          radius: 5,
+          fillColor: color,
+          color: "#ffffff",
+          weight: 1.5,
+          fillOpacity: 0.95
+        });
+
+        waypointMarker.bindPopup(
+          '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Waterway") + '</strong><br>' +
+          'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km</strong><br>' +
+          'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
+          'Colonisation Threat: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
+        );
+
+        self.group.addLayer(waypointMarker);
+      }
+    });
+  };
+
   /* ── Time slider ──────────────────────────────────────────────────────
      The temporal dimension of a survey is invisible without one: the analysis
      notes that the Time Machine feature currently has no visual representation
@@ -586,7 +663,9 @@
     MapLegendControl: MapLegendControl,
     ClusterLayer: ClusterLayer,
     HeatLayer: HeatLayer,
+    HydroCorridorLayer: HydroCorridorLayer,
     timeline: timeline
   };
 })(window);
+
 
