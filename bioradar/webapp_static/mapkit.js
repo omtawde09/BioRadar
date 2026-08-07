@@ -538,90 +538,77 @@
     var self = this;
 
     (this.corridors || []).forEach(function (corridor) {
-      // 1. Water Body Shoreline Boundary Edge
-      var wPoly = corridor.water_boundary_polygon || [];
-      if (wPoly.length >= 3) {
-        var shoreline = L.polygon(wPoly, {
-          color: "#0284c7",
-          weight: 1.5,
-          opacity: 0.65,
-          fillColor: "#0284c7",
-          fillOpacity: 0.05
-        });
-        shoreline.bindTooltip("<strong>" + UI.esc(corridor.waterway_name || "Water Body Shoreline") + "</strong><br>Shoreline Boundary Edge", { direction: "top" });
-        self.group.addLayer(shoreline);
-      }
-
-      // 2. High-Precision Water-Constrained Spread Zone Polygons
-      var zones = corridor.spread_zones || [];
-      zones.forEach(function (z) {
-        if (z.polygon_coords && z.polygon_coords.length >= 3) {
-          var zonePoly = L.polygon(z.polygon_coords, {
-            color: z.color || "#ef4444",
-            weight: 1.2,
-            opacity: 0.65,
-            fillColor: z.color || "#ef4444",
-            fillOpacity: z.fill_opacity || 0.28
-          });
-          var bracketLabel = z.time_bracket === "1-3_months" ? "1–3 Months (Immediate Water Front)" :
-                            (z.time_bracket === "3-6_months" ? "3–6 Months (Intermediate Front)" :
-                            (z.time_bracket === "6-12_months" ? "6–12 Months (Expanding Front)" : "12+ Months (Distal Front)"));
-          zonePoly.bindTooltip(
-            "<strong>" + UI.esc(corridor.waterway_name || "Water Body") + "</strong><br>" +
-            "Invasive Spread Zone: " + bracketLabel + "<br>" +
-            "Constrained inside blue water shoreline",
-            { direction: "top" }
-          );
-          self.group.addLayer(zonePoly);
-        }
-      });
-
-      // 3. Water Corridor Waypoints & Flow Lines
       var waypoints = corridor.waypoints || [];
-      if (waypoints.length >= 2) {
-        for (var i = 1; i < waypoints.length; i++) {
-          var p1 = waypoints[i - 1];
-          var p2 = waypoints[i];
-          var color = p2.color || "#ef4444";
-          var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo") : "Spread Front";
+      if (waypoints.length < 2) return;
 
-          var polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
-            color: color,
-            weight: 3.5,
-            opacity: 0.90,
-            lineCap: "round",
-            lineJoin: "round"
-          });
+      var latLngs = waypoints.map(function (p) { return [p.lat, p.lon]; });
 
-          polyline.bindTooltip(
-            "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
-            "Arrival Front: " + timeLabel + " (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
-            "Risk: " + (p2.colonisation_risk || "HIGH"),
-            { direction: "top" }
-          );
+      // 1. Outer Soft Channel Flow Tube (Wide gradient band flowing along water channel)
+      for (var i = 1; i < waypoints.length; i++) {
+        var p1 = waypoints[i - 1];
+        var p2 = waypoints[i];
+        var color = p2.color || "#ef4444";
+        var widthKm = p2.channel_width_km || 1.8;
 
-          self.group.addLayer(polyline);
+        // Dynamic pixel width scaling based on channel width
+        var outerWeight = Math.max(16, Math.min(38, Math.round(widthKm * 14)));
 
-          var waypointMarker = L.circleMarker([p2.lat, p2.lon], {
-            radius: 4.0,
-            fillColor: color,
-            color: "#ffffff",
-            weight: 1.5,
-            fillOpacity: 0.95
-          });
+        var outerTube = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+          color: color,
+          weight: outerWeight,
+          opacity: 0.22,
+          lineCap: "round",
+          lineJoin: "round"
+        });
+        self.group.addLayer(outerTube);
 
-          waypointMarker.bindPopup(
-            '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Waterway") + '</strong><br>' +
-            'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km</strong><br>' +
-            'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
-            'Colonisation Threat: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
-          );
+        var innerTube = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+          color: color,
+          weight: Math.round(outerWeight * 0.55),
+          opacity: 0.50,
+          lineCap: "round",
+          lineJoin: "round"
+        });
+        self.group.addLayer(innerTube);
 
-          self.group.addLayer(waypointMarker);
-        }
+        var coreLine = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+          color: "#ffffff",
+          weight: 2.5,
+          opacity: 0.90,
+          lineCap: "round",
+          lineJoin: "round"
+        });
+
+        var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo Front") : "Spread Front";
+        coreLine.bindTooltip(
+          "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
+          "Arrival Front: <strong>" + timeLabel + "</strong> (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
+          "Threat Risk: <span style='color:" + color + ";font-weight:700'>" + (p2.colonisation_risk || "HIGH") + "</span>",
+          { direction: "top" }
+        );
+        self.group.addLayer(coreLine);
+
+        // Arrival Front Pulsing Node Marker
+        var nodeMarker = L.circleMarker([p2.lat, p2.lon], {
+          radius: 5.5,
+          fillColor: color,
+          color: "#ffffff",
+          weight: 2.0,
+          fillOpacity: 1.0
+        });
+
+        nodeMarker.bindPopup(
+          '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Water Corridor") + '</strong><br>' +
+          'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km downstream</strong><br>' +
+          'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
+          'Colonisation Risk: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
+        );
+
+        self.group.addLayer(nodeMarker);
       }
     });
   };
+
 
 
 
