@@ -509,55 +509,43 @@
 
     // Paragraphs
     var pars = (exec.paragraphs || []).map(function (p) {
-      return '<p style="margin:0 0 10px 0;line-height:1.6;font-size:14px">' + esc(p) + '</p>';
+      return '<p style="margin:0 0 10px 0;line-height:1.6;font-size:14px;color:var(--text-primary)">' + esc(p) + '</p>';
     }).join("");
 
-    // KPIs
+    // Use native KPI tiles matching the top results bar
     var kpiRow =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:16px 0">' +
-        '<div style="background:var(--bg-card,#1e293b);padding:10px;border-radius:6px;border:1px solid var(--border,#334155);text-align:center">' +
-          '<div style="font-size:20px;font-weight:700;color:var(--text-primary,#f8fafc)">' + (kpis.total_taxa || 0) + '</div>' +
-          '<div style="font-size:11px;color:var(--text-secondary,#94a3b8)">Total Taxa</div>' +
-        '</div>' +
-        '<div style="background:var(--bg-card,#1e293b);padding:10px;border-radius:6px;border:1px solid #ef444440;text-align:center">' +
-          '<div style="font-size:20px;font-weight:700;color:#ef4444">' + (kpis.invasive_taxa || 0) + '</div>' +
-          '<div style="font-size:11px;color:#ef4444">Invasive Species</div>' +
-        '</div>' +
-        '<div style="background:var(--bg-card,#1e293b);padding:10px;border-radius:6px;border:1px solid #f9731640;text-align:center">' +
-          '<div style="font-size:20px;font-weight:700;color:#f97316">' + (kpis.threatened_taxa || 0) + '</div>' +
-          '<div style="font-size:11px;color:#f97316">Threatened Taxa</div>' +
-        '</div>' +
-        '<div style="background:var(--bg-card,#1e293b);padding:10px;border-radius:6px;border:1px solid var(--border,#334155);text-align:center">' +
-          '<div style="font-size:20px;font-weight:700;color:var(--text-primary,#f8fafc)">' + (kpis.sites_mapped || 0) + '</div>' +
-          '<div style="font-size:11px;color:var(--text-secondary,#94a3b8)">Sites Mapped</div>' +
-        '</div>' +
+      '<div class="kpis" style="margin:16px 0">' +
+        kpi("Total Taxa", kpis.total_taxa || 0, { color: "accent" }) +
+        kpi("Invasive Species", kpis.invasive_taxa || 0, { color: kpis.invasive_taxa ? "rare" : "" }) +
+        kpi("Threatened Taxa", kpis.threatened_taxa || 0, { color: kpis.threatened_taxa ? "rare" : "" }) +
+        kpi("Sites Mapped", kpis.sites_mapped || 0) +
       '</div>';
 
     // Threat Matrix Table
     var threatRows = threats.map(function (t) {
       var sitesStr = (t.sites || []).join(", ") || "All sites";
       var badgeBg = t.severity_color === "#ef4444" ? "#ef444420" : "#f9731620";
-      return '<tr style="border-bottom:1px solid var(--border,#334155)">' +
-        '<td style="padding:8px 10px"><strong>' + esc(t.common_name || t.scientific_name) + '</strong><br><span style="font-size:11px;font-style:italic;color:var(--text-secondary,#94a3b8)">' + esc(t.scientific_name) + '</span></td>' +
-        '<td style="padding:8px 10px"><span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:' + badgeBg + ';color:' + t.severity_color + '">' + esc(t.severity_badge) + '</span></td>' +
-        '<td style="padding:8px 10px;font-size:12px">' + esc(t.reads ? t.reads.toLocaleString() : "0") + ' reads</td>' +
-        '<td style="padding:8px 10px;font-size:12px">' + esc(sitesStr) + '</td>' +
-        '<td style="padding:8px 10px;font-size:11px;color:var(--text-secondary,#94a3b8)">' + esc(t.legal_status || "—") + '</td>' +
+      return '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:10px 12px"><strong>' + esc(t.common_name || t.scientific_name) + '</strong><br><span style="font-size:11px;font-style:italic;color:var(--text-secondary)">' + esc(t.scientific_name) + '</span></td>' +
+        '<td style="padding:10px 12px"><span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:' + badgeBg + ';color:' + t.severity_color + '">' + esc(t.severity_badge) + '</span></td>' +
+        '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(t.reads ? t.reads.toLocaleString() : "0") + ' reads</td>' +
+        '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(sitesStr) + '</td>' +
+        '<td style="padding:10px 12px;font-size:11px;color:var(--text-secondary)">' + esc(t.legal_status || "—") + '</td>' +
       '</tr>';
     }).join("");
 
     var threatTableHtml = threats.length ?
-      '<div style="margin-top:16px">' +
-        '<h4 style="margin:0 0 8px 0;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary,#94a3b8)">Species Threat Assessment Matrix</h4>' +
-        '<div style="overflow-x:auto;border:1px solid var(--border,#334155);border-radius:6px">' +
-          '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px">' +
-            '<thead style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border,#334155)">' +
+      '<div style="margin-top:18px">' +
+        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Species Threat Assessment Matrix</h4>' +
+        '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface)">' +
+          '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;color:var(--text-primary)">' +
+            '<thead style="background:var(--bg-card);border-bottom:1px solid var(--border)">' +
               '<tr>' +
-                '<th style="padding:8px 10px">Species</th>' +
-                '<th style="padding:8px 10px">Status</th>' +
-                '<th style="padding:8px 10px">Abundance</th>' +
-                '<th style="padding:8px 10px">Sites</th>' +
-                '<th style="padding:8px 10px">Legal Backing</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Species</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Status</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Abundance</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Sites</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Legal Backing</th>' +
               '</tr>' +
             '</thead>' +
             '<tbody>' + threatRows + '</tbody>' +
@@ -567,45 +555,46 @@
 
     // Action Plan Cards
     var actionItems = actions.map(function (a) {
-      return '<div style="background:var(--bg-card,#1e293b);padding:10px 12px;border-radius:6px;border-left:4px solid ' + (a.priority_color || "#3b82f6") + ';margin-bottom:8px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+      return '<div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);border-left:4px solid ' + (a.priority_color || "#3b82f6") + ';margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
           '<span style="font-size:12px;font-weight:700;color:' + (a.priority_color || "#3b82f6") + '">STEP ' + a.step + ' &middot; ' + esc(a.priority) + '</span>' +
-          '<span style="font-size:11px;color:var(--text-secondary,#94a3b8)">' + esc(a.category) + '</span>' +
+          '<span style="font-size:11px;color:var(--text-secondary)">' + esc(a.category) + '</span>' +
         '</div>' +
-        '<div style="font-size:13px;line-height:1.5;margin-bottom:4px"><strong>' + esc(a.location) + ':</strong> ' + esc(a.action) + '</div>' +
-        (a.legal_reference ? '<div style="font-size:11px;color:var(--text-secondary,#94a3b8)"><em>Reference: ' + esc(a.legal_reference) + '</em></div>' : "") +
+        '<div style="font-size:13px;line-height:1.5;margin-bottom:4px;color:var(--text-primary)"><strong>' + esc(a.location) + ':</strong> ' + esc(a.action) + '</div>' +
+        (a.legal_reference ? '<div style="font-size:11px;color:var(--text-secondary)"><em>Reference: ' + esc(a.legal_reference) + '</em></div>' : "") +
       '</div>';
     }).join("");
 
     var actionPlanHtml = actions.length ?
       '<div style="margin-top:20px">' +
-        '<h4 style="margin:0 0 10px 0;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary,#94a3b8)">Prioritized Conservation Action Plan</h4>' +
+        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Prioritized Conservation Action Plan</h4>' +
         actionItems +
       '</div>' : "";
 
     // XAI Audit Footer
     var auditHtml =
-      '<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border,#334155);font-size:11px;color:var(--text-secondary,#94a3b8);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+      '<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
         '<span>🔒 <strong>Audit:</strong> ' + esc(xai.chain_of_custody || "SHA-256 Verified") + '</span>' +
         '<span>🎯 <strong>Confidence:</strong> ' + esc(xai.confidence_statement || "High") + '</span>' +
       '</div>';
 
     return card(
-      '<div style="border-bottom:1px solid var(--border,#334155);padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">' +
+      '<div style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">' +
         '<div>' +
-          '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-secondary,#94a3b8);text-transform:uppercase">' + esc(header.doc_id || "BR-REP-2026") + ' &middot; ' + esc(header.classification || "DECISION SUPPORT") + '</div>' +
-          '<h2 style="margin:4px 0 0 0;font-size:20px;font-weight:800;letter-spacing:-0.5px">' + esc(header.title || "CONSERVATION INTELLIGENCE BRIEFING") + '</h2>' +
+          '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase">' + esc(header.doc_id || "BR-REP-2026") + ' &middot; ' + esc(header.classification || "DECISION SUPPORT") + '</div>' +
+          '<h2 style="margin:4px 0 0 0;font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text-primary)">' + esc(header.title || "CONSERVATION INTELLIGENCE BRIEFING") + '</h2>' +
         '</div>' +
         '<span style="padding:4px 12px;border-radius:16px;font-size:12px;font-weight:800;background:' + riskColor + '20;color:' + riskColor + ';border:1px solid ' + riskColor + '60">' + esc(riskLabel) + '</span>' +
       '</div>' +
       kpiRow +
-      '<div style="background:rgba(255,255,255,0.02);padding:14px;border-radius:6px;border-left:3px solid ' + riskColor + '">' + pars + '</div>' +
+      '<div style="background:var(--bg-surface);padding:14px;border-radius:8px;border-left:4px solid ' + riskColor + ';border:1px solid var(--border);border-left-width:4px;margin-bottom:14px">' + pars + '</div>' +
       threatTableHtml +
       actionPlanHtml +
       auditHtml,
       { className: "ai-briefing-report-card", size: "lg" }
     );
   }
+
 
 
   global.BioRadarUI = {

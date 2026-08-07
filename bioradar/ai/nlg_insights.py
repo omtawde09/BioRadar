@@ -18,10 +18,25 @@ def generate_executive_briefing(
 ) -> Dict[str, Any]:
     """Generate a structured, executive-level Conservation Intelligence Report."""
     species_list = analysis_result.get("species", [])
-    samples_count = len(analysis_result.get("samples", []))
-    sites_count = len(analysis_result.get("site_species", {}))
+    samples_raw = analysis_result.get("samples", 0)
+    if isinstance(samples_raw, int):
+        samples_count = samples_raw
+    elif isinstance(samples_raw, (list, tuple, set)):
+        samples_count = len(samples_raw)
+    else:
+        samples_count = 0
+
+    site_species = analysis_result.get("site_species", {})
+    if isinstance(site_species, dict):
+        sites_count = len(site_species)
+    elif isinstance(site_species, (list, tuple, set)):
+        sites_count = len(site_species)
+    else:
+        sites_count = 0
+
     phyla = analysis_result.get("phyla", [])
     total_detections = analysis_result.get("detections", 0)
+
 
     # Filter species
     named_species = [s for s in species_list if s.get("rank") == "species" and not s.get("placeholder")]
