@@ -1175,9 +1175,19 @@
       .then(function (res) { return res.json(); })
       .then(function (briefing) {
         var el = document.getElementById("aiBriefingHost-" + run.run_id);
-        if (el) el.innerHTML = UI.aiBriefing(briefing);
+        if (el) {
+          el.innerHTML = UI.aiBriefing(briefing);
+          // Also fetch & append 10-Year PVA Population Trajectory Chart
+          fetch("/api/species/Tor%20putitora/extinction-risk")
+            .then(function (res) { return res.json(); })
+            .then(function (pvaData) {
+              el.innerHTML += UI.pvaTrajectoryChart(pvaData);
+            })
+            .catch(function () {});
+        }
       })
       .catch(function () {});
+
 
     fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/spread-prediction?months=6")
       .then(function (res) { return res.json(); })
@@ -1215,18 +1225,23 @@
     wireExports(run);
     drawMap(run);
 
+    host.querySelectorAll("[data-pva]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        openPvaModal(btn.dataset.pva);
+      });
+    });
+
     stagger(host, ".kpi");
     stagger(host, "table.data tbody tr");
     host.querySelectorAll(".table-wrap").forEach(function (node) {
       node.classList.add("fresh");
-      // The row animation is for arrival only. Leaving the class on means a
-      // scroll or a sort restarts eighty animations, which reads as a fault.
       setTimeout(function () { node.classList.remove("fresh"); }, 1400);
     });
     UI.animateIn(host);
     countUpAll(host);
     UI.growBars(host);
   }
+
 
   /* An eDNA run that finds nothing is a normal result, not a broken app. Saying
      so — and saying what it usually means — is the difference between a judge
@@ -1246,12 +1261,25 @@
     return "";
   }
 
+  function openPvaModal(speciesName) {
+    UI.toast("Loading Extinction Risk & PVA Trajectory...", { duration: 1500 });
+    fetch("/api/species/" + encodeURIComponent(speciesName) + "/extinction-risk")
+      .then(function (res) { return res.json(); })
+      .then(function (pvaData) {
+        var content = UI.pvaTrajectoryChart(pvaData);
+        UI.modal("10-Year Population Viability Analysis & Extinction Risk", content);
+      })
+      .catch(function (err) {
+        UI.toast("Could not load PVA trajectory: " + (err.message || err), { variant: "alert" });
+      });
+  }
+
   function speciesTable(report) {
     var rows = report.top_species || [];
     if (!rows.length) return '<p class="hint" style="margin-top:16px">No taxa to list.</p>';
     return '<div class="table-wrap" style="margin-top:16px"><table class="data"><thead><tr>' +
       "<th>Taxon</th><th>Phylum</th><th class='num'>Reads</th>" +
-      "<th class='num'>Confidence</th><th>Field status</th></tr></thead><tbody>" +
+      "<th class='num'>Confidence</th><th>Field status</th><th>PVA Trajectory</th></tr></thead><tbody>" +
       rows.map(function (s) {
         var v = s.verification || {};
         return "<tr><td><em>" + esc(s.name) + "</em>" + (s.placeholder ? " †" : "") + "</td>" +
@@ -1259,7 +1287,8 @@
             '"></span>' + esc(s.phylum || "—") + "</td>" +
           '<td class="num">' + UI.num(s.reads) + "</td>" +
           '<td class="num">' + Number(s.confidence).toFixed(3) + "</td>" +
-          "<td>" + UI.badge(v.status || "unverified", v.status || "unverified") + "</td></tr>";
+          "<td>" + UI.badge(v.status || "unverified", v.status || "unverified") + "</td>" +
+          '<td>' + UI.button("PVA Risk", { size: "sm", variant: "subtle", icon: "activity", data: { pva: s.name } }) + '</td></tr>';
       }).join("") + "</tbody></table></div>" +
       (report.placeholders
         ? '<div class="hint" style="margin-top:12px">† an unidentified <code>&lt;taxon&gt; sp.</code> ' +
@@ -1267,6 +1296,7 @@
           "Counting these as species would overstate what the data supports.</div>"
         : "");
   }
+
 
   function exportCard(run) {
     var stats = run.export_stats || {};

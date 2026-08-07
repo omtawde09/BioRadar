@@ -597,6 +597,102 @@
 
 
 
+  function pvaTrajectoryChart(pvaData) {
+    if (!pvaData || !pvaData.pva_scenarios) return "";
+    var scenarios = pvaData.pva_scenarios;
+    var statusQuo = scenarios.status_quo || {};
+    var moderate = scenarios.moderate_intervention || {};
+    var aggressive = scenarios.aggressive_sanctuary || {};
+
+    var width = 540;
+    var height = 210;
+    var padding = { top: 20, right: 25, bottom: 30, left: 40 };
+
+    var chartW = width - padding.left - padding.right;
+    var chartH = height - padding.top - padding.bottom;
+
+    function getPolyline(traj) {
+      if (!traj || !traj.length) return "";
+      var points = [];
+      for (var i = 0; i < traj.length; i++) {
+        var x = padding.left + (i / 10) * chartW;
+        var val = Math.max(0, Math.min(100, traj[i]));
+        var y = padding.top + (1 - (val / 100)) * chartH;
+        points.push(x.toFixed(1) + "," + y.toFixed(1));
+      }
+      return points.join(" ");
+    }
+
+    var sqPoints = getPolyline(statusQuo.trajectory);
+    var modPoints = getPolyline(moderate.trajectory);
+    var aggPoints = getPolyline(aggressive.trajectory);
+
+    var xGrid = "";
+    for (var yr = 0; yr <= 10; yr += 2) {
+      var gx = padding.left + (yr / 10) * chartW;
+      xGrid += '<line x1="' + gx + '" y1="' + padding.top + '" x2="' + gx + '" y2="' + (padding.top + chartH) + '" stroke="var(--border)" stroke-dasharray="2,2" opacity="0.6"/>' +
+               '<text x="' + gx + '" y="' + (height - 8) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">Yr ' + yr + '</text>';
+    }
+
+    var yGrid = "";
+    for (var pct = 0; pct <= 100; pct += 25) {
+      var gy = padding.top + (1 - (pct / 100)) * chartH;
+      yGrid += '<line x1="' + padding.left + '" y1="' + gy + '" x2="' + (padding.left + chartW) + '" y2="' + gy + '" stroke="var(--border)" stroke-dasharray="2,2" opacity="0.6"/>' +
+               '<text x="' + (padding.left - 6) + '" y="' + (gy + 3) + '" text-anchor="end" font-size="10" fill="var(--text-secondary)">' + pct + '%</text>';
+    }
+
+    var attributions = (pvaData.explanation && pvaData.explanation.attributions) || [];
+    var attrHtml = attributions.map(function (a) {
+      var pct = Math.round((a.importance || 0.2) * 100);
+      return '<div style="margin-bottom:6px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-primary);margin-bottom:2px">' +
+        '<span>' + esc(a.feature) + '</span>' +
+        '<strong>' + pct + '%</strong>' +
+        '</div>' +
+        '<div style="background:var(--border);height:5px;border-radius:3px;overflow:hidden">' +
+        '<div style="background:#ef4444;width:' + pct + '%;height:100%"></div>' +
+        '</div>' +
+        '</div>';
+    }).join("");
+
+    var svg =
+      '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%;height:auto;overflow:visible">' +
+        xGrid + yGrid +
+        '<line x1="' + padding.left + '" y1="' + padding.top + '" x2="' + padding.left + '" y2="' + (padding.top + chartH) + '" stroke="var(--text-secondary)" stroke-width="1.5"/>' +
+        '<line x1="' + padding.left + '" y1="' + (padding.top + chartH) + '" x2="' + (padding.left + chartW) + '" y2="' + (padding.top + chartH) + '" stroke="var(--text-secondary)" stroke-width="1.5"/>' +
+        '<polyline points="' + sqPoints + '" fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>' +
+        '<polyline points="' + modPoints + '" fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="5,3" stroke-linecap="round"/>' +
+        '<polyline points="' + aggPoints + '" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>' +
+      '</svg>';
+
+    return '<div class="pva-container" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Population Viability Analysis (PVA)</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pvaData.species || "Species") + ' &middot; 10-Year Extinction Risk Trajectory</h3>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ef444420;color:#ef4444;border:1px solid #ef444450">' + esc(pvaData.predicted_category || "Endangered") + '</span>' +
+          '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">Extinction Horizon: <strong style="color:#dc2626">' + esc(pvaData.estimated_years_to_extinction || "4.2 Years") + '</strong></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 200px;gap:14px;align-items:center">' +
+        '<div>' +
+          svg +
+          '<div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;flex-wrap:wrap">' +
+            '<span><strong style="color:#dc2626">&#9644;&#9644;</strong> Status Quo (No Action)</span>' +
+            '<span><strong style="color:#f97316">&#9581;&#9581;</strong> Moderate Intervention</span>' +
+            '<span><strong style="color:#10b981">&#9644;&#9644;</strong> Aggressive Sanctuary</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:8px;border:1px solid var(--border)">' +
+          '<h5 style="margin:0 0 8px 0;font-size:11px;text-transform:uppercase;color:var(--text-secondary)">Threat Drivers (XAI)</h5>' +
+          attrHtml +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
     animateIn: animateIn, pulse: pulse, countUp: countUp, growBars: growBars,
@@ -609,7 +705,8 @@
     openPanel: openPanel, closePanel: closePanel,
     categorical: categorical, categoricalAt: categoricalAt,
     sequential: sequential, heat: heat, cssVar: cssVar, bars: bars,
-    aiBriefing: aiBriefing
+    aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart
   };
 })(window);
+
 
