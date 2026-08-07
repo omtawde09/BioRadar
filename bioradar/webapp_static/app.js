@@ -1187,21 +1187,22 @@
             })
             .catch(function () {});
 
-          // Fetch & append PINN Upstream Origin Tracer card and map layer
-          fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/pinn-origin-trace?species=Clarias%20gariepinus&site_id=GOA-MANDOVI")
+          // Fetch & append PINN Upstream Origin Tracer card and multi-site map layer
+          fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/pinn-origin-trace?species=Clarias%20gariepinus")
             .then(function (res) { return res.json(); })
             .then(function (pinnData) {
-              if (pinnData && pinnData.predicted_origin) {
-                el.innerHTML += UI.pinnOriginCard(pinnData);
+              if (pinnData && (pinnData.predicted_origin || (pinnData.traces && pinnData.traces.length))) {
+                var singlePinn = pinnData.predicted_origin ? pinnData : (pinnData.traces ? pinnData.traces[0] : null);
+                if (singlePinn) el.innerHTML += UI.pinnOriginCard(singlePinn);
                 var entry = maps[run.run_id];
                 if (entry && entry.map) {
                   if (entry.pinnLayer) entry.map.removeLayer(entry.pinnLayer);
                   entry.pinnLayer = new MapKit.PINNPlumeLayer(pinnData);
                   entry.map.addLayer(entry.pinnLayer);
                   var focusBtn = document.getElementById("pinnFocusBtn");
-                  if (focusBtn) {
+                  if (focusBtn && singlePinn && singlePinn.predicted_origin) {
                     focusBtn.addEventListener("click", function () {
-                      var orig = pinnData.predicted_origin;
+                      var orig = singlePinn.predicted_origin;
                       entry.map.flyTo([orig.latitude, orig.longitude], 12, { animate: true, duration: 1.5 });
                     });
                   }
@@ -1209,6 +1210,7 @@
               }
             })
             .catch(function () {});
+
         }
       })
       .catch(function () {});

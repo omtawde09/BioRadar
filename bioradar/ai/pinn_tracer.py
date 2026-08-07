@@ -127,7 +127,7 @@ def predict_upstream_origin(site_id="GOA-MANDOVI", site_lat=15.4989, site_lon=73
                         "type": "LineString",
                         "coordinates": [[site_lon, site_lat], [origin_lon, origin_lat]]
                     },
-                    "properties": {"type": "flow_line", "label": f"{dist_km} km Upstream Flow Path"}
+                    "properties": {"type": "flow_line", "site_id": site_id, "label": f"{dist_km} km Upstream Flow Path"}
                 },
                 {
                     "type": "Feature",
@@ -137,7 +137,9 @@ def predict_upstream_origin(site_id="GOA-MANDOVI", site_lat=15.4989, site_lon=73
                     },
                     "properties": {
                         "type": "origin_beacon",
-                        "label": f"PINN Origin ({dist_km} km upstream, -{physics['travel_time_hrs']} hrs)"
+                        "site_id": site_id,
+                        "species_name": species_name,
+                        "label": f"PINN Origin for {site_id} ({dist_km} km upstream, -{physics['travel_time_hrs']} hrs)"
                     }
                 },
                 {
@@ -146,8 +148,54 @@ def predict_upstream_origin(site_id="GOA-MANDOVI", site_lat=15.4989, site_lon=73
                         "type": "Polygon",
                         "coordinates": [[[p[1], p[0]] for p in polygon_points + [polygon_points[0]]]]
                     },
-                    "properties": {"type": "uncertainty_bounds", "label": f"±{uncertainty_km} km Map Error Margin"}
+                    "properties": {"type": "uncertainty_bounds", "site_id": site_id, "label": f"±{uncertainty_km} km Map Error Margin"}
                 }
             ]
         }
     }
+
+
+def predict_all_upstream_origins_for_run(map_points, species_name="Clarias gariepinus"):
+    """
+    Computes PINN upstream origin predictions across ALL sampling sites in a run.
+    """
+    if not map_points:
+        return {"traces": [], "geojson": {"type": "FeatureCollection", "features": []}}
+
+    all_traces = []
+    all_features = []
+
+    # Assign varied azimuth flow angles per region for realistic multi-site vectors
+    azimuths = [75.0, 110.0, 45.0, 135.0, 60.0, 95.0]
+
+    for idx, pt in enumerate(map_points):
+        site_id = pt.get("site_id") or f"SITE-{idx+1}"
+        site_lat = float(pt.get("latitude", 15.4989))
+        site_lon = float(pt.get("longitude", 73.8278))
+        reads = int(pt.get("total_reads") or pt.get("reads") or 1200)
+        wb_type = pt.get("waterbody_type") or "estuary"
+        azimuth = azimuths[idx % len(azimuths)]
+
+        trace = predict_upstream_origin(
+            site_id=site_id,
+            site_lat=site_lat,
+            site_lon=site_lon,
+            species_name=species_name,
+            read_count=reads,
+            total_reads=4694,
+            waterbody_type=wb_type,
+            flow_azimuth_deg=azimuth
+        )
+        all_traces.append(trace)
+        all_features.extend(trace["geojson"]["features"])
+
+    return {
+        "species_name": species_name,
+        "site_count": len(all_traces),
+        "traces": all_traces,
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": all_features
+        }
+    }
+

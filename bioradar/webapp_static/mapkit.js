@@ -749,6 +749,7 @@
       (pinn.geojson.features || []).forEach(function (feat) {
         var props = feat.properties || {};
         var geom = feat.geometry || {};
+        var siteLabel = props.site_id ? " (" + props.site_id + ")" : "";
 
         if (props.type === "flow_line" && geom.type === "LineString") {
           var latlngs = (geom.coordinates || []).map(function (c) { return [c[1], c[0]]; });
@@ -759,7 +760,7 @@
             dashArray: "8, 6",
             lineCap: "round"
           });
-          line.bindTooltip("⚡ PINN Upstream Flow Path (" + origin.distance_upstream_km + " km)", { sticky: true });
+          line.bindTooltip("⚡ PINN Upstream Flow Path" + siteLabel, { sticky: true });
           self.addLayer(line);
         } else if (props.type === "uncertainty_bounds" && geom.type === "Polygon") {
           var polyCoords = ((geom.coordinates && geom.coordinates[0]) || []).map(function (c) { return [c[1], c[0]]; });
@@ -770,7 +771,7 @@
             fillColor: "#8b5cf6",
             fillOpacity: 0.25
           });
-          poly.bindTooltip("⚠️ Map Data Uncertainty Bounds (±" + origin.map_spatial_uncertainty_km + " km Error Margin)", { sticky: true });
+          poly.bindTooltip("⚠️ Map Data Uncertainty Bounds" + siteLabel, { sticky: true });
           self.addLayer(poly);
         } else if (props.type === "origin_beacon" && geom.type === "Point") {
           var ptCoords = [geom.coordinates[1], geom.coordinates[0]];
@@ -785,30 +786,26 @@
             iconAnchor: [18, 18]
           });
 
-          var marker = L.marker(ptCoords, { icon: beaconIcon, title: "PINN Origin Point" });
+          var marker = L.marker(ptCoords, { icon: beaconIcon, title: "PINN Origin Point " + siteLabel });
           var popupHtml =
             '<div style="font-size:12px;min-width:240px;color:var(--text-primary,#f8fafc)">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
             '<span style="background:#ec4899;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:900">PINN REVERSE ORIGIN</span>' +
-            '<span style="font-weight:800;color:#ec4899;font-size:12px">-' + origin.time_since_release_hrs + ' hrs ago</span>' +
+            '<span style="font-weight:800;color:#ec4899;font-size:12px">' + UI.esc(props.site_id || "") + '</span>' +
             '</div>' +
-            '<strong>' + UI.esc(pinn.species_name || "Target Species") + ' Release Origin</strong><br>' +
+            '<strong>' + UI.esc(props.label || "Upstream eDNA Release Point") + '</strong><br>' +
             '<div style="margin-top:6px;font-size:11px;line-height:1.6;color:var(--text-secondary,#cbd5e1)">' +
-            '📍 <strong>Coordinates:</strong> ' + origin.latitude + ', ' + origin.longitude + '<br>' +
-            '📏 <strong>Distance Upstream:</strong> ' + origin.distance_upstream_km + ' km<br>' +
-            '⏳ <strong>Estimated Shedding Time:</strong> ' + origin.time_since_release_hrs + ' hours ago<br>' +
-            '⚠️ <strong>Map Uncertainty Margin:</strong> ±' + origin.map_spatial_uncertainty_km + ' km<br>' +
-            '</div>' +
-            '<div style="margin-top:8px;font-size:10px;background:rgba(236,72,153,0.15);padding:6px;border-radius:4px;border-left:3px solid #ec4899;color:var(--text-primary)">' +
-            '<em>' + UI.esc(origin.map_inaccuracy_disclaimer || "Includes Map Error Margin") + '</em>' +
+            '📍 <strong>Location:</strong> ' + ptCoords[0] + ', ' + ptCoords[1] + '<br>' +
+            '⚠️ <strong>Map Uncertainty Margin:</strong> Factored into bounding ellipse<br>' +
             '</div>' +
             '</div>';
 
           marker.bindPopup(popupHtml);
-          marker.bindTooltip("⚡ PINN Origin (-" + origin.time_since_release_hrs + " hrs, " + origin.distance_upstream_km + " km upstream)", { direction: "top" });
+          marker.bindTooltip("⚡ " + UI.esc(props.label || "PINN Origin"), { direction: "top" });
           self.addLayer(marker);
         }
       });
+
     }
   });
 
