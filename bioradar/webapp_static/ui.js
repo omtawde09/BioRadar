@@ -148,14 +148,13 @@
       trend = '<div class="trend ' + esc(options.trend) + '">' + arrow + " " +
               esc(options.trendLabel || "") + "</div>";
     }
-    // A numeric tile counts up; a string one ("12.4%") is written directly,
-    // because animating a value the user cannot verify mid-flight is noise.
+
     var raw = typeof value === "number" ? value
-            : (/^-?[\d,]+(\.\d+)?$/.test(String(value))
+            : (/^-?[\d,]+$/.test(String(value))
                 ? Number(String(value).replace(/,/g, "")) : null);
     var inner = raw === null
       ? esc(value)
-      : '<span data-count="' + raw + '">0</span>';
+      : '<span data-count="' + raw + '">' + esc(value) + '</span>';
 
     return '<div class="' + classes.join(" ") + '">' +
       '<div class="k">' + esc(label) + "</div>" +
@@ -221,29 +220,41 @@
 
   function skeletonScreen() {
     return '<div class="stack">' +
-      '<div class="skeleton-grid">' + skeleton("tile", 5) + "</div>" +
-      '<div class="skeleton block"></div>' +
-      '<div class="card">' + skeleton("line", 6) + "</div></div>";
+      '<div class="kpis">' + skeleton("tile", 5) + "</div>" +
+      '<div class="map-card card"><div class="skeleton block" style="height:380px"></div></div>' +
+      '<div class="card"><div class="skeleton line medium"></div><div class="skeleton line"></div></div>' +
+      "</div>";
   }
 
-  /* ── Toasts ───────────────────────────────────────────────────────── */
+  /* ── Toast ────────────────────────────────────────────────────────── */
 
-  function toast(message, variant, timeout) {
-    var host = document.getElementById("toasts");
-    if (!host) return;
+  var toastTimer = null;
+
+  function toast(message, options) {
+    options = options || {};
+    var container = document.getElementById("toastContainer");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toastContainer";
+      document.body.appendChild(container);
+    }
+    container.innerHTML = "";
     var node = document.createElement("div");
-    node.className = "toast" + (variant ? " " + variant : "");
-    node.setAttribute("role", variant === "error" ? "alert" : "status");
-    node.textContent = message;
-    host.appendChild(node);
-    var life = timeout || (variant === "error" ? 7000 : 4200);
-    setTimeout(function () {
-      node.classList.add("leaving");
-      setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 200);
-    }, life);
+    node.className = "toast" + (options.variant ? " " + options.variant : "");
+    node.setAttribute("role", "alert");
+    node.innerHTML = (options.icon ? icon(options.icon, 18) : "") +
+                     "<span>" + esc(message) + "</span>";
+    container.appendChild(node);
+    requestAnimationFrame(function () { node.classList.add("open"); });
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      node.classList.remove("open");
+      setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 160);
+    }, options.duration || 3000);
   }
 
-  /* ── Modal ────────────────────────────────────────────────────────── */
+  /* ── Dialogs (modal) ──────────────────────────────────────────────── */
 
   var openModal = null;
 
@@ -265,6 +276,7 @@
     requestAnimationFrame(function () {
       node.classList.add("open");
       backdrop.classList.add("open");
+      countUpAll(node);
     });
 
     node.querySelector(".modal-close").addEventListener("click", closeModal);
@@ -305,6 +317,7 @@
                    ariaLabel: t("common.close") }) + "</div>" + bodyHtml;
     panel.classList.add("open");
     panel.querySelector(".panel-close").addEventListener("click", closePanel);
+    countUpAll(panel);
     return panel;
   }
 
@@ -329,190 +342,88 @@
     return cssVar("--cat-" + ((hash % 8) + 1));
   }
 
-  function categoricalAt(index) { return cssVar("--cat-" + ((index % 8) + 1)); }
+  function categoricalAt(index) {
+    return cssVar("--cat-" + (((index || 0) % 8) + 1));
+  }
 
   /* Viridis, for continuous 0..1 values. */
   function sequential(value) {
-    var stops = ["--seq-1", "--seq-2", "--seq-3", "--seq-4", "--seq-5", "--seq-6"];
-    var clamped = Math.max(0, Math.min(1, Number(value) || 0));
-    return cssVar(stops[Math.min(stops.length - 1, Math.floor(clamped * stops.length))]);
+    var clamped = Math.max(0, Math.min(1, value));
+    var stops = [
+      [240, 249, 255], [186, 230, 253], [125, 211, 252],
+      [56, 189, 248],  [14, 165, 233],  [2, 132, 199]
+    ];
+    var scaled = clamped * (stops.length - 1);
+    var index = Math.floor(scaled);
+    var frac = scaled - index;
+    if (index >= stops.length - 1) return "rgb(" + stops[stops.length - 1].join(",") + ")";
+    var c1 = stops[index], c2 = stops[index + 1];
+    var r = Math.round(c1[0] + frac * (c2[0] - c1[0]));
+    var g = Math.round(c1[1] + frac * (c2[1] - c1[1]));
+    var b = Math.round(c1[2] + frac * (c2[2] - c1[2]));
+    return "rgb(" + r + "," + g + "," + b + ")";
   }
 
   function heat(value) {
-    var stops = ["--heat-1", "--heat-2", "--heat-3", "--heat-4", "--heat-5"];
-    var clamped = Math.max(0, Math.min(1, Number(value) || 0));
-    return cssVar(stops[Math.min(stops.length - 1, Math.floor(clamped * stops.length))]);
+    var clamped = Math.max(0, Math.min(1, value));
+    var stops = [
+      [254, 240, 138], [253, 224, 71],  [250, 204, 21],
+      [249, 115, 22],  [239, 68, 68],   [185, 28, 28]
+    ];
+    var scaled = clamped * (stops.length - 1);
+    var index = Math.floor(scaled);
+    var frac = scaled - index;
+    if (index >= stops.length - 1) return "rgb(" + stops[stops.length - 1].join(",") + ")";
+    var c1 = stops[index], c2 = stops[index + 1];
+    var r = Math.round(c1[0] + frac * (c2[0] - c1[0]));
+    var g = Math.round(c1[1] + frac * (c2[1] - c1[1]));
+    var b = Math.round(c1[2] + frac * (c2[2] - c1[2]));
+    return "rgb(" + r + "," + g + "," + b + ")";
   }
 
-  /* ── Bars (FLAT) ──────────────────────────────────────────────────── */
+  /* ── Bars component (phylum composition etc.) ────────────────────── */
 
-  function bars(rows, options) {
-    options = options || {};
-    if (!rows || !rows.length) return "";
-    var total = rows.reduce(function (sum, r) { return sum + (r.value || 0); }, 0) || 1;
-    return '<div class="bars">' + rows.map(function (row, index) {
-      var pct = (row.value / total) * 100;
-      // The target width lives in data-width so growBars() can start at zero
-      // and transition to it after the node is in the document.
-      return '<div class="bar-row" style="--i:' + index + '">' +
-        '<span class="lbl" title="' + esc(row.label) + '">' + esc(row.label) + "</span>" +
-        '<span class="bar-track"><span class="bar-fill" data-width="' + pct.toFixed(2) +
-          '%" style="width:0%;background:' + (row.color || categorical(row.label)) +
-          '"></span></span>' +
-        '<span class="val">' + (options.absolute ? num(row.value) : pct.toFixed(1) + "%") +
-        "</span></div>";
-    }).join("") + "</div>";
+  function bars(items) {
+    if (!items || !items.length) return "";
+    var total = items.reduce(function (sum, item) { return sum + (item.value || 0); }, 0) || 1;
+    var rows = items.map(function (item, index) {
+      var pct = ((item.value / total) * 100).toFixed(1);
+      var color = item.color || categoricalAt(index);
+      return '<div class="bar-row">' +
+        '<div class="bar-label">' + esc(item.label) + "</div>" +
+        '<div class="bar-track"><div class="bar-fill" style="width:0%;background:' +
+          color + '" data-target-width="' + pct + '%"></div></div>' +
+        '<div class="bar-value">' + pct + "%</div></div>";
+    }).join("");
+    return '<div class="bars-component">' + rows + "</div>";
   }
 
-  /* ── Motion ───────────────────────────────────────────────────────────
+  /* ── Automated Executive Intelligence Briefing ───────────────────── */
 
-     All of it is presentation. Nothing here carries information that is not
-     also in the DOM, so `prefers-reduced-motion` can switch the lot off and
-     lose nothing -- which is why every helper checks it and returns early. */
-
-  function prefersReducedMotion() {
-    return !!(global.matchMedia &&
-              global.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }
-
-  /**
-   * Stagger the direct children of a container into view.
-   *
-   * The delay is capped: past about ten items a per-item delay stops reading as
-   * "the list is arriving" and starts reading as "the app is slow", which is
-   * the opposite of what the animation is for.
-   */
-  function animateIn(container, selector) {
-    if (!container || prefersReducedMotion()) return;
-    var nodes = selector ? container.querySelectorAll(selector)
-                         : container.children;
-    // Write-only. Reading a layout property here -- offsetWidth, to restart a
-    // CSS animation -- forces a full synchronous layout of the document, and
-    // doing it once per child turns a ten-item list into ten layouts of a page
-    // covered in box-shadows. That measured over a second on a single click.
-    //
-    // It is also unnecessary: these nodes were created by the innerHTML
-    // assignment immediately before this call, so their entrance animation
-    // plays on insertion with nothing to restart.
-    for (var i = 0; i < nodes.length; i++) {
-      nodes[i].style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
-      nodes[i].classList.add("entering");
-    }
-  }
-
-  /**
-   * Flash a node that has just changed state.
-   *
-   * Unlike animateIn this genuinely has to re-trigger on an element that is
-   * already in the document, so it uses the Web Animations API rather than the
-   * remove-class/read-layout/add-class trick. Same result, no forced reflow.
-   */
-  function pulse(node) {
-    if (!node || prefersReducedMotion() || typeof node.animate !== "function") return;
-    node.animate(
-      [
-        { boxShadow: "0 0 0 0 " + cssVar("--alert-healthy") },
-        { boxShadow: "0 0 0 12px transparent" }
-      ],
-      { duration: 620, easing: "cubic-bezier(0, 0, .2, 1)" }
-    );
-  }
-
-  /**
-   * Count a number up to its value.
-   *
-   * Specified in the guide's microinteraction table (1000ms, ease-out). Uses
-   * requestAnimationFrame rather than a timer so it stays in step with paint,
-   * and stops immediately when the tab is hidden -- an animation nobody is
-   * looking at is pure battery cost.
-   */
-  function countUp(node, target, duration) {
-    if (!node) return;
-    var value = Number(target) || 0;
-    if (prefersReducedMotion() || value === 0) {
-      node.textContent = num(value);
-      return;
-    }
-    var total = duration || 900;
-    var start = null;
-    var settled = false;
-    // Integers count as integers; a diversity index counts to two decimals.
-    var decimals = String(target).indexOf(".") > -1 ? 2 : 0;
-
-    function settle() {
-      if (settled) return;
-      settled = true;
-      node.textContent = format(value);
-    }
-
-    function frame(timestamp) {
-      if (settled) return;
-      if (document.hidden) { settle(); return; }
-      if (start === null) start = timestamp;
-      var progress = Math.min(1, (timestamp - start) / total);
-      // ease-out cubic: fast first, settling at the end.
-      var eased = 1 - Math.pow(1 - progress, 3);
-      node.textContent = format(value * eased);
-      if (progress < 1) requestAnimationFrame(frame);
-      else settled = true;
-    }
-
-    function format(n) {
-      return decimals ? n.toFixed(decimals) : num(Math.round(n));
-    }
-
-    requestAnimationFrame(frame);
-    // A backstop, because the failure mode of a stalled count-up is not a
-    // missing animation -- it is a KPI tile that reads 0 when the answer is 16.
-    // rAF is throttled in background tabs and absent in some embedded panes, so
-    // the true value must not depend on it.
-    setTimeout(settle, total + 250);
-  }
-
-  /** Grow bars and meters from zero once they are on screen. */
-  function growBars(container) {
-    if (!container) return;
-    var fills = container.querySelectorAll(".bar-fill[data-width], .meter > span[data-width]");
-    if (!fills.length) return;
-
-    function apply() {
-      fills.forEach(function (fill) {
-        if (fill.style.width !== fill.dataset.width) fill.style.width = fill.dataset.width;
-      });
-    }
-
-    if (prefersReducedMotion()) { apply(); return; }
-
-    fills.forEach(function (fill) { fill.style.width = "0%"; });
-    // Two frames so the zero width is committed before the target is set --
-    // one frame and the browser coalesces both into a single style change and
-    // the transition never runs.
-    requestAnimationFrame(function () { requestAnimationFrame(apply); });
-    // Same reasoning as countUp: a bar frozen at 0% misrepresents the data, so
-    // the end state cannot depend on frames being delivered.
-    setTimeout(apply, 200);
-  }
-
-  function aiBriefing(data) {
-    if (!data) return "";
-    var header = data.report_header || {};
-    var exec = data.executive_summary || {};
+  function aiBriefing(briefing) {
+    if (!briefing || !briefing.executive_summary) return "";
+    var exec = briefing.executive_summary || {};
     var kpis = exec.kpis || {};
-    var threats = data.threat_matrix || [];
-    var actions = data.action_plan || [];
-    var xai = data.xai_audit || {};
+    var header = briefing.report_header || {};
+    var threats = briefing.threat_matrix || [];
+    var xai = briefing.xai_audit || {};
 
-    var riskColor = header.risk_level === "HIGH_INVASIVE_RISK" ? "#ef4444" :
-                   (header.risk_level === "CONSERVATION_ALERT" ? "#f97316" : "#10b981");
-    var riskLabel = header.risk_level === "HIGH_INVASIVE_RISK" ? "CRITICAL INVASIVE ALERT" :
-                   (header.risk_level === "CONSERVATION_ALERT" ? "PROTECTED TAXA ALERT" : "STABLE BIO-COMMUNITY");
+    var riskColor = {
+      HIGH_INVASIVE_RISK: "#ef4444",
+      CONSERVATION_ALERT: "#f97316",
+      STABLE_COMMUNITY: "#10b981"
+    }[header.risk_level] || "#10b981";
 
-    // Paragraphs
+    var riskLabel = {
+      HIGH_INVASIVE_RISK: "CRITICAL INVASIVE ALERT",
+      CONSERVATION_ALERT: "PROTECTED TAXA ALERT",
+      STABLE_COMMUNITY: "STABLE BIO-COMMUNITY"
+    }[header.risk_level] || "STABLE BIO-COMMUNITY";
+
     var pars = (exec.paragraphs || []).map(function (p) {
       return '<p style="margin:0 0 10px 0;line-height:1.6;font-size:14px;color:var(--text-primary)">' + esc(p) + '</p>';
     }).join("");
 
-    // Use native KPI tiles matching the top results bar
     var kpiRow =
       '<div class="kpis" style="margin:16px 0">' +
         kpi("Total Taxa", kpis.total_taxa || 0, { color: "accent" }) +
@@ -521,7 +432,6 @@
         kpi("Sites Mapped", kpis.sites_mapped || 0) +
       '</div>';
 
-    // Threat Matrix Table
     var threatRows = threats.map(function (t) {
       var sitesStr = (t.sites || []).join(", ") || "All sites";
       var badgeBg = t.severity_color === "#ef4444" ? "#ef444420" : "#f9731620";
@@ -553,25 +463,6 @@
         '</div>' +
       '</div>' : "";
 
-    // Action Plan Cards
-    var actionItems = actions.map(function (a) {
-      return '<div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border);border-left:4px solid ' + (a.priority_color || "#3b82f6") + ';margin-bottom:10px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-          '<span style="font-size:12px;font-weight:700;color:' + (a.priority_color || "#3b82f6") + '">STEP ' + a.step + ' &middot; ' + esc(a.priority) + '</span>' +
-          '<span style="font-size:11px;color:var(--text-secondary)">' + esc(a.category) + '</span>' +
-        '</div>' +
-        '<div style="font-size:13px;line-height:1.5;margin-bottom:4px;color:var(--text-primary)"><strong>' + esc(a.location) + ':</strong> ' + esc(a.action) + '</div>' +
-        (a.legal_reference ? '<div style="font-size:11px;color:var(--text-secondary)"><em>Reference: ' + esc(a.legal_reference) + '</em></div>' : "") +
-      '</div>';
-    }).join("");
-
-    var actionPlanHtml = actions.length ?
-      '<div style="margin-top:20px">' +
-        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Prioritized Conservation Action Plan</h4>' +
-        actionItems +
-      '</div>' : "";
-
-    // XAI Audit Footer
     var auditHtml =
       '<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
         '<span>🔒 <strong>Audit:</strong> ' + esc(xai.chain_of_custody || "SHA-256 Verified") + '</span>' +
@@ -588,14 +479,10 @@
       '</div>' +
       kpiRow +
       '<div style="background:var(--bg-surface);padding:14px;border-radius:8px;border-left:4px solid ' + riskColor + ';border:1px solid var(--border);border-left-width:4px;margin-bottom:14px">' + pars + '</div>' +
-      threatTableHtml +
-      actionPlanHtml +
-      auditHtml,
-      { className: "ai-briefing-report-card", size: "lg" }
+      threatTableHtml + auditHtml,
+      { className: "ai-briefing-card" }
     );
   }
-
-
 
   function pvaTrajectoryChart(pvaData) {
     if (!pvaData || !pvaData.pva_scenarios) return "";
@@ -611,21 +498,32 @@
     var chartW = width - padding.left - padding.right;
     var chartH = height - padding.top - padding.bottom;
 
-    function getPolyline(traj) {
+    function getPolyline(scenarioObj) {
+      if (!scenarioObj) return "";
+      var traj = Array.isArray(scenarioObj) ? scenarioObj : (scenarioObj.trajectory || []);
       if (!traj || !traj.length) return "";
       var points = [];
       for (var i = 0; i < traj.length; i++) {
-        var x = padding.left + (i / 10) * chartW;
-        var val = Math.max(0, Math.min(100, traj[i]));
+        var x = padding.left + (i / (traj.length - 1 || 1)) * chartW;
+        var item = traj[i];
+        var rawVal = 0;
+        if (typeof item === "number") {
+          rawVal = item;
+        } else if (item && item.survival_probability !== undefined) {
+          rawVal = item.survival_probability * 100;
+        } else if (item && item.population !== undefined) {
+          rawVal = item.population / 10;
+        }
+        var val = Math.max(0, Math.min(100, Number(rawVal) || 0));
         var y = padding.top + (1 - (val / 100)) * chartH;
         points.push(x.toFixed(1) + "," + y.toFixed(1));
       }
       return points.join(" ");
     }
 
-    var sqPoints = getPolyline(statusQuo.trajectory);
-    var modPoints = getPolyline(moderate.trajectory);
-    var aggPoints = getPolyline(aggressive.trajectory);
+    var sqPoints = getPolyline(statusQuo);
+    var modPoints = getPolyline(moderate);
+    var aggPoints = getPolyline(aggressive);
 
     var xGrid = "";
     for (var yr = 0; yr <= 10; yr += 2) {
@@ -669,7 +567,7 @@
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
         '<div>' +
           '<div style="font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Population Viability Analysis (PVA)</div>' +
-          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pvaData.species || "Species") + ' &middot; 10-Year Extinction Risk Trajectory</h3>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pvaData.species || pvaData.scientific_name || "Species") + ' &middot; 10-Year Extinction Risk Trajectory</h3>' +
         '</div>' +
         '<div style="text-align:right">' +
           '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ef444420;color:#ef4444;border:1px solid #ef444450">' + esc(pvaData.predicted_category || "Endangered") + '</span>' +
@@ -693,9 +591,99 @@
     '</div>';
   }
 
+  function prefersReducedMotion() {
+    return !!(global.matchMedia &&
+              global.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function animateIn(container, selector) {
+    if (!container || prefersReducedMotion()) return;
+    var nodes = selector ? container.querySelectorAll(selector)
+                         : container.children;
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
+      nodes[i].classList.add("entering");
+    }
+  }
+
+  function pulse(node) {
+    if (!node || prefersReducedMotion() || typeof node.animate !== "function") return;
+    node.animate(
+      [
+        { boxShadow: "0 0 0 0 " + cssVar("--alert-healthy") },
+        { boxShadow: "0 0 0 12px transparent" }
+      ],
+      { duration: 620, easing: "cubic-bezier(0, 0, .2, 1)" }
+    );
+  }
+
+  function countUp(node, target, duration) {
+    if (!node) return;
+    var value = Number(target) || 0;
+    if (prefersReducedMotion() || value === 0) {
+      node.textContent = num(value);
+      return;
+    }
+    var total = duration || 900;
+    var start = null;
+    var settled = false;
+    var decimals = String(target).indexOf(".") > -1 ? 2 : 0;
+
+    function settle() {
+      if (settled) return;
+      settled = true;
+      node.textContent = format(value);
+    }
+
+    function frame(timestamp) {
+      if (settled) return;
+      if (document.hidden) { settle(); return; }
+      if (start === null) start = timestamp;
+      var progress = Math.min(1, (timestamp - start) / total);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      node.textContent = format(value * eased);
+      if (progress < 1) requestAnimationFrame(frame);
+      else settled = true;
+    }
+
+    function format(n) {
+      return decimals ? n.toFixed(decimals) : num(Math.round(n));
+    }
+
+    requestAnimationFrame(frame);
+    setTimeout(settle, total + 250);
+  }
+
+  function countUpAll(container) {
+    if (!container) return;
+    container.querySelectorAll("[data-count]").forEach(function (n) {
+      countUp(n, Number(n.dataset.count));
+    });
+  }
+
+
+  function growBars(container) {
+    if (!container) return;
+    var fills = container.querySelectorAll(".bar-fill[data-width], .meter > span[data-width], .bar-fill[data-target-width]");
+    if (!fills.length) return;
+
+    function apply() {
+      fills.forEach(function (fill) {
+        var target = fill.dataset.width || fill.dataset.targetWidth;
+        if (target && fill.style.width !== target) fill.style.width = target;
+      });
+    }
+
+    if (prefersReducedMotion()) { apply(); return; }
+
+    fills.forEach(function (fill) { fill.style.width = "0%"; });
+    requestAnimationFrame(function () { requestAnimationFrame(apply); });
+    setTimeout(apply, 200);
+  }
+
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
-    animateIn: animateIn, pulse: pulse, countUp: countUp, growBars: growBars,
+    animateIn: animateIn, pulse: pulse, countUp: countUp, countUpAll: countUpAll, growBars: growBars,
     prefersReducedMotion: prefersReducedMotion,
     elapsedSince: elapsedSince,
     icon: icon, card: card, button: button, badge: badge, kpi: kpi, toggle: toggle,
@@ -708,5 +696,6 @@
     aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart
   };
 })(window);
+
 
 

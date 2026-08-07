@@ -1177,16 +1177,19 @@
         var el = document.getElementById("aiBriefingHost-" + run.run_id);
         if (el) {
           el.innerHTML = UI.aiBriefing(briefing);
+          if (UI.countUpAll) UI.countUpAll(el);
           // Also fetch & append 10-Year PVA Population Trajectory Chart
           fetch("/api/species/Tor%20putitora/extinction-risk")
             .then(function (res) { return res.json(); })
             .then(function (pvaData) {
               el.innerHTML += UI.pvaTrajectoryChart(pvaData);
+              if (UI.countUpAll) UI.countUpAll(el);
             })
             .catch(function () {});
         }
       })
       .catch(function () {});
+
 
 
     fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/spread-prediction?months=6")
@@ -1580,15 +1583,17 @@
   }
 
   function openSiteDetail(run, point) {
+    var shannonStr = (point.shannon !== undefined && point.shannon !== null)
+      ? Number(point.shannon).toFixed(4) : "—";
     UI.openPanel(point.site_id,
       '<div class="stack">' +
       '<div class="kpis">' +
-        UI.kpi("Species", point.species_count, { color: "accent" }) +
-        UI.kpi("Reads", UI.num(point.total_reads)) +
-        UI.kpi("Shannon", point.shannon) +
+        UI.kpi("Species", point.species_count || 0, { color: "accent" }) +
+        UI.kpi("Reads", UI.num(point.total_reads || 0)) +
+        UI.kpi("Shannon", shannonStr) +
       "</div>" +
-      '<div class="hint mono">' + esc(point.sample_id) + "<br>" +
-      point.latitude.toFixed(5) + ", " + point.longitude.toFixed(5) +
+      '<div class="hint mono">' + esc(point.sample_id || "") + "<br>" +
+      Number(point.latitude || 0).toFixed(5) + ", " + Number(point.longitude || 0).toFixed(5) +
       (point.collected_at ? "<br>collected " + esc(point.collected_at) : "") + "</div>" +
       ((point.top_taxa || []).length
         ? "<div><h3>Top taxa</h3>" + UI.bars(point.top_taxa.map(function (taxon) {
@@ -1597,6 +1602,7 @@
         : "") +
       "</div>");
   }
+
 
   /* ══════════════════════════════════════════════════════════════════════
      Feature: Compare — the biodiversity radar
