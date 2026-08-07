@@ -1060,6 +1060,29 @@ class Handler(BaseHTTPRequestHandler):
             from bioradar.ai import ias_model
             return self._json(200, {"invasive_risks": ias_model.predict_all_invasives_for_run(analysis_dict)})
 
+        if section == "pinn-origin-trace":
+            from bioradar.ai import pinn_tracer
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            site_id_param = query.get("site_id", ["GOA-MANDOVI"])[0]
+            points = map_points(run_id)
+            target_pt = next((p for p in points if p.get("site_id") == site_id_param), points[0] if points else {})
+
+            site_lat = float(target_pt.get("latitude", 15.4989))
+            site_lon = float(target_pt.get("longitude", 73.8278))
+            reads = int(target_pt.get("total_reads", 1200))
+
+            trace_res = pinn_tracer.predict_upstream_origin(
+                site_id=site_id_param,
+                site_lat=site_lat,
+                site_lon=site_lon,
+                species_name=species_param,
+                read_count=reads,
+                total_reads=4694,
+                waterbody_type=target_pt.get("waterbody_type", "estuary")
+            )
+            return self._json(200, trace_res)
+
+
 
 
         if section == "spread-prediction":

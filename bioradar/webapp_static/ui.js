@@ -693,6 +693,47 @@
     setTimeout(apply, 200);
   }
 
+  function pinnOriginCard(pinnData) {
+    if (!pinnData || !pinnData.predicted_origin) return "";
+    var origin = pinnData.predicted_origin;
+    var params = pinnData.physics_parameters || {};
+
+    return '<div class="pinn-card" style="background:var(--bg-surface);border:1px solid #ec489950;border-left:4px solid #ec4899;border-radius:10px;padding:16px;margin-top:16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:#ec4899;text-transform:uppercase;letter-spacing:1px">⚡ PINN eDNA Upstream Source Origin Tracer</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pinnData.species_name || "Invasive Species") + ' &middot; Backwards Hydrodynamic Localization</h3>' +
+        '</div>' +
+        '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ec489920;color:#ec4899;border:1px solid #ec489960">PHYSICS-INFORMED NEURAL SOLVER</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-bottom:12px">' +
+        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Upstream Distance</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#ec4899">' + origin.distance_upstream_km + ' km</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Time Since Release</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#8b5cf6">-' + origin.time_since_release_hrs + ' hrs</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">eDNA Half-Life</div>' +
+          '<div style="font-size:18px;font-weight:900;color:var(--text-primary)">' + (params.half_life_hrs || 12.0) + ' hrs</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Map Error Margin</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#f59e0b">&plusmn;' + origin.map_spatial_uncertainty_km + ' km</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border);margin-bottom:10px">' +
+        '📐 <strong>Advection-Dispersion Hydro-Parameters:</strong> Velocity <code>u = ' + (params.flow_velocity_ms || 0.45) + ' m/s</code> &middot; Water Temp <code>T = ' + (params.temperature_c || 28.0) + '&deg;C</code> &middot; Decay Rate <code>&lambda; = ' + (params.decay_rate_hr || 0.058) + ' hr&minus;1</code><br>' +
+        '⚠️ <em>' + esc(origin.map_inaccuracy_disclaimer || "Includes Map Error Margin") + '</em>' +
+      '</div>' +
+      '<button class="button primary sm" id="pinnFocusBtn" style="background:#ec4899;border-color:#ec4899;font-weight:800">' +
+        '📍 Focus Map on Predicted Upstream Origin (' + origin.latitude + ', ' + origin.longitude + ')' +
+      '</button>' +
+    '</div>';
+  }
+
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
     animateIn: animateIn, pulse: pulse, countUp: countUp, countUpAll: countUpAll, growBars: growBars,
@@ -705,9 +746,10 @@
     openPanel: openPanel, closePanel: closePanel,
     categorical: categorical, categoricalAt: categoricalAt,
     sequential: sequential, heat: heat, cssVar: cssVar, bars: bars,
-    aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart
+    aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart, pinnOriginCard: pinnOriginCard
   };
 })(window);
+
 
 
 

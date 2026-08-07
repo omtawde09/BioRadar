@@ -725,6 +725,93 @@
   });
 
 
+  /* ── PINN eDNA Upstream Origin Layer (Physics-Informed Neural Network) ── */
+
+  var PINNPlumeLayer = L.LayerGroup.extend({
+    initialize: function (pinnData, options) {
+      L.LayerGroup.prototype.initialize.call(this, [], options);
+      this.pinnData = pinnData;
+      this.render();
+    },
+
+    setPlumeData: function (pinnData) {
+      this.pinnData = pinnData;
+      this.render();
+    },
+
+    render: function () {
+      this.clearLayers();
+      if (!this.pinnData || !this.pinnData.geojson) return;
+      var self = this;
+      var pinn = this.pinnData;
+      var origin = pinn.predicted_origin || {};
+
+      (pinn.geojson.features || []).forEach(function (feat) {
+        var props = feat.properties || {};
+        var geom = feat.geometry || {};
+
+        if (props.type === "flow_line" && geom.type === "LineString") {
+          var latlngs = (geom.coordinates || []).map(function (c) { return [c[1], c[0]]; });
+          var line = L.polyline(latlngs, {
+            color: "#ec4899",
+            weight: 4,
+            opacity: 0.9,
+            dashArray: "8, 6",
+            lineCap: "round"
+          });
+          line.bindTooltip("⚡ PINN Upstream Flow Path (" + origin.distance_upstream_km + " km)", { sticky: true });
+          self.addLayer(line);
+        } else if (props.type === "uncertainty_bounds" && geom.type === "Polygon") {
+          var polyCoords = ((geom.coordinates && geom.coordinates[0]) || []).map(function (c) { return [c[1], c[0]]; });
+          var poly = L.polygon(polyCoords, {
+            color: "#8b5cf6",
+            weight: 2,
+            dashArray: "4, 4",
+            fillColor: "#8b5cf6",
+            fillOpacity: 0.25
+          });
+          poly.bindTooltip("⚠️ Map Data Uncertainty Bounds (±" + origin.map_spatial_uncertainty_km + " km Error Margin)", { sticky: true });
+          self.addLayer(poly);
+        } else if (props.type === "origin_beacon" && geom.type === "Point") {
+          var ptCoords = [geom.coordinates[1], geom.coordinates[0]];
+          var beaconIcon = L.divIcon({
+            className: "pinn-beacon-marker",
+            html: '<div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center">' +
+                  '<span style="position:absolute;width:36px;height:36px;border-radius:50%;background:#ec4899;opacity:0.4;animation:pinnPulse 1.8s infinite ease-out"></span>' +
+                  '<span style="position:absolute;width:24px;height:24px;border-radius:50%;background:#8b5cf6;opacity:0.6"></span>' +
+                  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#ffffff" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>' +
+                  '</div>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+          });
+
+          var marker = L.marker(ptCoords, { icon: beaconIcon, title: "PINN Origin Point" });
+          var popupHtml =
+            '<div style="font-size:12px;min-width:240px;color:var(--text-primary,#f8fafc)">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+            '<span style="background:#ec4899;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:900">PINN REVERSE ORIGIN</span>' +
+            '<span style="font-weight:800;color:#ec4899;font-size:12px">-' + origin.time_since_release_hrs + ' hrs ago</span>' +
+            '</div>' +
+            '<strong>' + UI.esc(pinn.species_name || "Target Species") + ' Release Origin</strong><br>' +
+            '<div style="margin-top:6px;font-size:11px;line-height:1.6;color:var(--text-secondary,#cbd5e1)">' +
+            '📍 <strong>Coordinates:</strong> ' + origin.latitude + ', ' + origin.longitude + '<br>' +
+            '📏 <strong>Distance Upstream:</strong> ' + origin.distance_upstream_km + ' km<br>' +
+            '⏳ <strong>Estimated Shedding Time:</strong> ' + origin.time_since_release_hrs + ' hours ago<br>' +
+            '⚠️ <strong>Map Uncertainty Margin:</strong> ±' + origin.map_spatial_uncertainty_km + ' km<br>' +
+            '</div>' +
+            '<div style="margin-top:8px;font-size:10px;background:rgba(236,72,153,0.15);padding:6px;border-radius:4px;border-left:3px solid #ec4899;color:var(--text-primary)">' +
+            '<em>' + UI.esc(origin.map_inaccuracy_disclaimer || "Includes Map Error Margin") + '</em>' +
+            '</div>' +
+            '</div>';
+
+          marker.bindPopup(popupHtml);
+          marker.bindTooltip("⚡ PINN Origin (-" + origin.time_since_release_hrs + " hrs, " + origin.distance_upstream_km + " km upstream)", { direction: "top" });
+          self.addLayer(marker);
+        }
+      });
+    }
+  });
+
   global.BioRadarMap = {
     BASEMAPS: BASEMAPS,
     prefersDarkTiles: prefersDarkTiles,
@@ -735,8 +822,10 @@
     HeatLayer: HeatLayer,
     HydroCorridorLayer: HydroCorridorLayer,
     RecommendedSiteLayer: RecommendedSiteLayer,
+    PINNPlumeLayer: PINNPlumeLayer,
     timeline: timeline
   };
+
 })(window);
 
 

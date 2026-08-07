@@ -1186,9 +1186,33 @@
               if (UI.countUpAll) UI.countUpAll(el);
             })
             .catch(function () {});
+
+          // Fetch & append PINN Upstream Origin Tracer card and map layer
+          fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/pinn-origin-trace?species=Clarias%20gariepinus&site_id=GOA-MANDOVI")
+            .then(function (res) { return res.json(); })
+            .then(function (pinnData) {
+              if (pinnData && pinnData.predicted_origin) {
+                el.innerHTML += UI.pinnOriginCard(pinnData);
+                var entry = maps[run.run_id];
+                if (entry && entry.map) {
+                  if (entry.pinnLayer) entry.map.removeLayer(entry.pinnLayer);
+                  entry.pinnLayer = new MapKit.PINNPlumeLayer(pinnData);
+                  entry.map.addLayer(entry.pinnLayer);
+                  var focusBtn = document.getElementById("pinnFocusBtn");
+                  if (focusBtn) {
+                    focusBtn.addEventListener("click", function () {
+                      var orig = pinnData.predicted_origin;
+                      entry.map.flyTo([orig.latitude, orig.longitude], 12, { animate: true, duration: 1.5 });
+                    });
+                  }
+                }
+              }
+            })
+            .catch(function () {});
         }
       })
       .catch(function () {});
+
 
 
 
