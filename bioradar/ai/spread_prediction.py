@@ -1,7 +1,7 @@
-"""Hydro-Corridor Fluid Dispersal & Soft Channel Flow Engine.
+"""Hydro-Corridor Fluid Dispersal & Site-Anchored Water Flow Engine.
 
-Models invasive species dispersal along natural water channel center-lines using smooth
-fluid flow tubes, variable channel widths, and soft gaussian heat contours.
+Models invasive species dispersal starting DIRECTLY AT THE OCCURRENCE SITE pin marker
+and flowing downstream along the natural blue water body channel.
 """
 
 from __future__ import annotations
@@ -20,56 +20,48 @@ CORRIDOR_COLORS = {
     "12+_months": "#eab308",   # Light Gold
 }
 
-# Smooth Fluid River Channel Center-Line Paths (High precision water channel flow)
-WATER_CHANNEL_NETWORKS: Dict[str, Dict[str, Any]] = {
+# Regional Water Channel Flow Trajectories (Relative offsets from site origin along blue water body)
+WATER_CORRIDOR_OFFSETS: Dict[str, Dict[str, Any]] = {
     "VEMBANAD": {
-        "name": "Vembanad Lake Channel Corridor",
-        "flow_direction": "North-South Lake Channel",
-        "centerline": [
-            [9.7480, 76.3920, 1.2],
-            [9.7220, 76.3980, 1.6],
-            [9.6950, 76.4040, 2.2],
-            [9.6650, 76.4080, 2.6],
-            [9.6320, 76.4040, 2.8],
-            [9.5980, 76.3940, 2.4],
-            [9.5650, 76.3800, 2.0],
-            [9.5350, 76.3620, 1.6],
-            [9.5050, 76.3450, 1.2],
-            [9.4750, 76.3300, 0.9],
+        "name": "Vembanad Lake Estuary Channel",
+        "flow_direction": "South-Southwest Lake Corridor",
+        # Offsets (d_lat, d_lon, channel_width_km) following blue lake water down to Alappuzha
+        "offsets": [
+            (0.0000, 0.0000, 1.8),   # Origin at Site Pin Marker
+            (-0.0250, -0.0120, 2.4),  # Mid Lake Channel
+            (-0.0550, -0.0280, 2.6),  # Lower Vembanad Lake
+            (-0.0880, -0.0450, 2.1),  # Komalapuram / Aryad Lake Channel
+            (-0.1250, -0.0580, 1.4),  # Alappuzha / Punnamada Lagoon Exit
         ],
     },
     "MANDOVI": {
         "name": "Mandovi River Estuary Channel",
-        "flow_direction": "East-West Tidal Estuary",
-        "centerline": [
-            [15.5420, 73.8150, 0.8],
-            [15.5320, 73.8380, 1.2],
-            [15.5200, 73.8650, 1.6],
-            [15.5100, 73.8950, 1.8],
-            [15.5000, 73.9300, 1.4],
-            [15.4900, 73.9550, 1.0],
+        "flow_direction": "Westward Tidal Estuary",
+        "offsets": [
+            (0.0000, 0.0000, 1.0),
+            (-0.0080, 0.0180, 1.5),
+            (-0.0180, 0.0420, 1.8),
+            (-0.0280, 0.0700, 1.4),
+            (-0.0400, 0.0950, 1.0),
         ],
     },
     "KOLLERU": {
         "name": "Kolleru Lake Central Basin",
-        "flow_direction": "Freshwater Lake Basin",
-        "centerline": [
-            [16.7200, 81.2350, 1.5],
-            [16.6980, 81.2750, 2.5],
-            [16.6750, 81.3300, 3.2],
-            [16.6450, 81.3850, 2.8],
-            [16.6150, 81.4100, 2.0],
-            [16.5800, 81.3600, 1.2],
+        "flow_direction": "Southeast Wetland Basin",
+        "offsets": [
+            (0.0000, 0.0000, 1.5),
+            (-0.0200, 0.0350, 2.8),
+            (-0.0450, 0.0750, 3.2),
+            (-0.0750, 0.1150, 2.2),
         ],
     },
     "KAVARATTI": {
         "name": "Kavaratti Lagoon Waters",
-        "flow_direction": "Atoll Lagoon Corridor",
-        "centerline": [
-            [10.5780, 72.6260, 0.8],
-            [10.5650, 72.6380, 1.2],
-            [10.550, 72.6450, 1.4],
-            [10.5380, 72.6380, 1.0],
+        "flow_direction": "Southwest Lagoon Channel",
+        "offsets": [
+            (0.0000, 0.0000, 0.8),
+            (-0.0120, -0.0080, 1.2),
+            (-0.0250, -0.0150, 1.4),
         ],
     },
 }
@@ -91,33 +83,32 @@ def calculate_habitat_suitability(
     return round(max(0.0, min(1.0, suitability)), 3)
 
 
-def _get_water_channel_network(site_id: str, lat: float, lon: float) -> Tuple[str, List[List[float]], Dict[str, Any]]:
-    """Match sampling site to smooth river channel center-line flow network."""
+def _get_water_corridor_data(site_id: str, lat: float, lon: float) -> Tuple[str, List[Tuple[float, float, float]], Dict[str, Any]]:
+    """Match site to regional water corridor flow offsets."""
     key_upper = site_id.upper()
-    for key, data in WATER_CHANNEL_NETWORKS.items():
+    for key, data in WATER_CORRIDOR_OFFSETS.items():
         if key in key_upper:
-            return data["name"], data["centerline"], data
+            return data["name"], data["offsets"], data
 
     # Geographic coordinate bounding box matching
     if 9.3 <= lat <= 9.9 and 76.2 <= lon <= 76.6:
-        data = WATER_CHANNEL_NETWORKS["VEMBANAD"]
-        return data["name"], data["centerline"], data
+        data = WATER_CORRIDOR_OFFSETS["VEMBANAD"]
+        return data["name"], data["offsets"], data
     elif 15.3 <= lat <= 15.6 and 73.7 <= lon <= 74.0:
-        data = WATER_CHANNEL_NETWORKS["MANDOVI"]
-        return data["name"], data["centerline"], data
+        data = WATER_CORRIDOR_OFFSETS["MANDOVI"]
+        return data["name"], data["offsets"], data
     elif 16.4 <= lat <= 16.8 and 81.1 <= lon <= 81.5:
-        data = WATER_CHANNEL_NETWORKS["KOLLERU"]
-        return data["name"], data["centerline"], data
+        data = WATER_CORRIDOR_OFFSETS["KOLLERU"]
+        return data["name"], data["offsets"], data
 
-    # Generic smooth center-line flow curve
-    generic_line = [
-        [lat, lon, 1.0],
-        [lat - 0.012, lon + 0.015, 1.5],
-        [lat - 0.028, lon + 0.035, 2.0],
-        [lat - 0.048, lon + 0.060, 1.8],
-        [lat - 0.070, lon + 0.088, 1.2],
+    # Generic downstream water corridor offsets
+    generic_offsets = [
+        (0.0000, 0.0000, 1.2),
+        (-0.0180, 0.0150, 1.6),
+        (-0.0380, 0.0320, 2.0),
+        (-0.0600, 0.0550, 1.5),
     ]
-    return f"{site_id} River Corridor", generic_line, {"flow_direction": "River Channel"}
+    return f"{site_id} Waterway", generic_offsets, {"flow_direction": "River Channel"}
 
 
 def forecast_invasive_spread(
@@ -125,7 +116,7 @@ def forecast_invasive_spread(
     occurrence_sites: List[Dict[str, Any]],
     months_ahead: int = 6,
 ) -> Dict[str, Any]:
-    """Run Hydro-Corridor Dispersal Simulation with Smooth Fluid Channel Tubes."""
+    """Run Site-Anchored Water Dispersal Simulation originating AT the occurrence site marker."""
     corridor_networks = []
     all_predictions = []
 
@@ -141,22 +132,23 @@ def forecast_invasive_spread(
             continue
 
         suitability = calculate_habitat_suitability()
-        w_name, centerline, w_meta = _get_water_channel_network(site_id, lat, lon)
+        w_name, offsets, w_meta = _get_water_corridor_data(site_id, lat, lon)
 
-        # Build smooth flow tube waypoints
+        # Build smooth site-anchored flow tube waypoints
         tube_waypoints = []
         cum_dist = 0.0
 
-        for idx, pt in enumerate(centerline):
-            pt_lat, pt_lon = pt[0], pt[1]
-            channel_width = pt[2] if len(pt) > 2 else 1.5
+        for idx, (d_lat, d_lon, channel_width) in enumerate(offsets):
+            pt_lat = round(lat + d_lat, 5)
+            pt_lon = round(lon + d_lon, 5)
 
             if idx > 0:
-                prev_lat, prev_lon = centerline[idx - 1][0], centerline[idx - 1][1]
-                # Approx lat/lon distance in km
-                d_lat = (pt_lat - prev_lat) * 111.0
-                d_lon = (pt_lon - prev_lon) * 111.0 * math.cos(math.radians(pt_lat))
-                segment_km = math.sqrt(d_lat * d_lat + d_lon * d_lon)
+                prev_lat = tube_waypoints[-1]["lat"]
+                prev_lon = tube_waypoints[-1]["lon"]
+                # Great-circle approximation in km
+                dist_lat = (pt_lat - prev_lat) * 111.0
+                dist_lon = (pt_lon - prev_lon) * 111.0 * math.cos(math.radians(pt_lat))
+                segment_km = math.sqrt(dist_lat * dist_lat + dist_lon * dist_lon)
                 cum_dist += segment_km
 
             arrival_months = round(cum_dist / 1.5, 1)
@@ -173,8 +165,8 @@ def forecast_invasive_spread(
                 time_bracket = "12+_months"
 
             tube_waypoints.append({
-                "lat": round(pt_lat, 5),
-                "lon": round(pt_lon, 5),
+                "lat": pt_lat,
+                "lon": pt_lon,
                 "channel_width_km": channel_width,
                 "distance_from_origin_km": round(cum_dist, 1),
                 "arrival_months": arrival_months,
@@ -195,7 +187,6 @@ def forecast_invasive_spread(
                 "max_spread_km": max_dist,
                 "habitat_suitability": suitability,
                 "waypoints": tube_waypoints,
-                # For compatibility with tests
                 "water_boundary_polygon": [[p["lat"], p["lon"]] for p in tube_waypoints],
             })
 
@@ -216,8 +207,8 @@ def forecast_invasive_spread(
     max_overall_km = max([p["spread_distance_km"] for p in all_predictions], default=0.0)
 
     summary_text = (
-        f"Fluid hydro-corridor dispersal simulation for {species_name} over {months_ahead} months projects "
-        f"channel propagation of up to {max_overall_km} km along natural water body flow networks."
+        f"Site-anchored fluid hydro dispersal simulation for {species_name} over {months_ahead} months projects "
+        f"channel propagation originating from detection sites up to {max_overall_km} km along blue water corridors."
     )
 
     return {
