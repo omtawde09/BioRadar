@@ -1178,7 +1178,8 @@
         if (el) {
           el.innerHTML = UI.aiBriefing(briefing);
           if (UI.countUpAll) UI.countUpAll(el);
-          // Also fetch & append 10-Year PVA Population Trajectory Chart
+
+          // Fetch & append 10-Year PVA Population Trajectory Chart
           fetch("/api/species/Tor%20putitora/extinction-risk")
             .then(function (res) { return res.json(); })
             .then(function (pvaData) {
@@ -1211,9 +1212,25 @@
             })
             .catch(function () {});
 
+          // Delegated event listener for Blockchain Proof Modal
+          var hostEl = document.getElementById("aiBriefingHost-" + run.run_id);
+          if (hostEl) {
+            hostEl.addEventListener("click", function (e) {
+              var btn = e.target.closest("[data-blockchain-verify]");
+              if (btn) {
+                fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/blockchain-proof")
+                  .then(function (res) { return res.json(); })
+                  .then(function (proofData) {
+                    UI.blockchainProofModal(proofData);
+                  })
+                  .catch(function () {});
+              }
+            });
+          }
         }
       })
       .catch(function () {});
+
 
 
 

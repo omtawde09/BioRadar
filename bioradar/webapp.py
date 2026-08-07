@@ -1086,6 +1086,13 @@ class Handler(BaseHTTPRequestHandler):
                 all_res = pinn_tracer.predict_all_upstream_origins_for_run(points, species_name=species_param)
                 return self._json(200, all_res)
 
+        if section == "blockchain-proof":
+            import bioradar.blockchain_ledger as ledger
+            points = map_points(run_id)
+            proof = ledger.generate_blockchain_proof(run_id, points)
+            return self._json(200, proof)
+
+
 
 
 
