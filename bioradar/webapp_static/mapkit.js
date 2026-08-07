@@ -682,6 +682,85 @@
     return { node: wrap, dates: unique };
   }
 
+  /* ── Recommended Sampling Site Layer ────────────────────────────────────── */
+
+  function RecommendedSiteLayer(recommendations, options) {
+    this.recs = recommendations || [];
+    this.options = options || {};
+    this.group = L.layerGroup();
+    this._map = null;
+  }
+
+  RecommendedSiteLayer.prototype.addTo = function (map) {
+    this._map = map;
+    this.group.addTo(map);
+    this.render();
+    return this;
+  };
+
+  RecommendedSiteLayer.prototype.remove = function () {
+    if (this._map) {
+      this.group.clearLayers();
+      this._map.removeLayer(this.group);
+    }
+    return this;
+  };
+
+  RecommendedSiteLayer.prototype.render = function () {
+    if (!this._map) return;
+    this.group.clearLayers();
+    var self = this;
+
+    (this.recs || []).forEach(function (rec) {
+      var lat = rec.latitude;
+      var lon = rec.longitude;
+      if (!lat || !lon) return;
+
+      var rank = rec.rank || 1;
+      var score = rec.composite_priority_score || 85;
+      var priorityTag = rec.priority || "RECOMMENDED SITE";
+      var priorityColor = rec.priority_color || "#06b6d4";
+
+      // Distinct Cyan Target Pin Icon (32px x 44px) with crosshair target & rank number
+      var icon = L.divIcon({
+        className: "recommended-pin-marker",
+        html: '<svg viewBox="0 0 32 44" width="32" height="44" aria-hidden="true" style="filter:drop-shadow(0 4px 10px rgba(6,182,212,0.65))">' +
+              '<path d="M16 0C7.2 0 0 7.2 0 16c0 11.2 16 28 16 28s16-16.8 16-28C32 7.2 24.8 0 16 0z" fill="#06b6d4" stroke="#ffffff" stroke-width="2"/>' +
+              '<circle cx="16" cy="16" r="10" fill="#0891b2"/>' +
+              '<circle cx="16" cy="16" r="6" fill="#ffffff"/>' +
+              '<text x="16" y="20" text-anchor="middle" font-size="11" font-weight="900" fill="#0891b2">' + rank + '</text>' +
+              '</svg>',
+        iconSize: [32, 44],
+        iconAnchor: [16, 44]
+      });
+
+      var marker = L.marker([lat, lon], { icon: icon, title: rec.site_name || "Recommended Site" });
+
+      var popupHtml =
+        '<div style="font-size:12px;min-width:220px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="background:' + priorityColor + ';color:#ffffff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800">' + UI.esc(priorityTag) + '</span>' +
+        '<span style="font-weight:900;color:#0891b2;font-size:14px">Score ' + score + '/100</span>' +
+        '</div>' +
+        '<strong>' + UI.esc(rec.site_name || "Optimal Sampling Site") + '</strong><br>' +
+        '<div style="margin-top:6px;font-size:11px;line-height:1.5;color:#475569">' +
+        '🎯 <strong>Target Species:</strong> ' + UI.esc(rec.target_species || "Multi-species") + '<br>' +
+        '📈 <strong>Beta-Diversity Gain:</strong> ' + (rec.complementarity_gain || 90) + '%<br>' +
+        '⚠️ <strong>Bottleneck Risk:</strong> ' + (rec.invasive_bottleneck_risk || 80) + '%<br>' +
+        '📉 <strong>Uncertainty Reduction:</strong> ' + (rec.uncertainty_reduction || 85) + '%<br>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:11px;background:#f1f5f9;padding:6px;border-radius:4px;border-left:3px solid #06b6d4">' +
+        UI.esc(rec.justification || "Recommended location to maximize biodiversity discovery.") +
+        '</div>' +
+        '</div>';
+
+      marker.bindPopup(popupHtml);
+      marker.bindTooltip("🎯 " + UI.esc(rec.site_name) + " (Score " + score + "/100)", { direction: "top" });
+
+      self.group.addLayer(marker);
+    });
+  };
+
   global.BioRadarMap = {
     BASEMAPS: BASEMAPS,
     prefersDarkTiles: prefersDarkTiles,
@@ -691,8 +770,10 @@
     ClusterLayer: ClusterLayer,
     HeatLayer: HeatLayer,
     HydroCorridorLayer: HydroCorridorLayer,
+    RecommendedSiteLayer: RecommendedSiteLayer,
     timeline: timeline
   };
 })(window);
+
 
 

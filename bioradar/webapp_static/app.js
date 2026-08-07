@@ -1185,10 +1185,30 @@
         if (spreadData && spreadData.hydro_corridors && maps[run.run_id]) {
           var entry = maps[run.run_id];
           if (entry.hydroLayer) entry.map.removeLayer(entry.hydroLayer);
-          entry.hydroLayer = new MapKit.HydroCorridorLayer(spreadData.hydro_corridors).addTo(entry.map);
+          entry.hydroLayer = new MapKit.HydroCorridorLayer(spreadData.hydro_corridors);
+          var heatToggle = document.getElementById("heatToggle-" + run.run_id);
+          if (heatToggle && heatToggle.checked) {
+            entry.hydroLayer.addTo(entry.map);
+          }
         }
       })
       .catch(function () {});
+
+    fetch("/api/runs/" + encodeURIComponent(run.run_id) + "/sampling-recommendations")
+      .then(function (res) { return res.json(); })
+      .then(function (recData) {
+        if (recData && recData.recommendations && maps[run.run_id]) {
+          var entry = maps[run.run_id];
+          if (entry.optimalLayer) entry.map.removeLayer(entry.optimalLayer);
+          entry.optimalLayer = new MapKit.RecommendedSiteLayer(recData.recommendations);
+          var optimalToggle = document.getElementById("optimalToggle-" + run.run_id);
+          if (!optimalToggle || optimalToggle.checked) {
+            entry.optimalLayer.addTo(entry.map);
+          }
+        }
+      })
+      .catch(function () {});
+
 
 
     document.getElementById("clearRuns").addEventListener("click", clearResults);
@@ -1457,22 +1477,37 @@
       "<strong style='font-size:14px'>" + esc(t("results.map")) + "</strong>" +
       '<span class="spacer"></span>' +
       UI.toggle("heatToggle-" + run.run_id, "Heatmap", false) +
+      UI.toggle("optimalToggle-" + run.run_id, "Optimal sites", true) +
       UI.toggle("clusterToggle-" + run.run_id, "Cluster pins", true);
 
     var heatToggle = document.getElementById("heatToggle-" + run.run_id);
     heatToggle.addEventListener("change", function () {
-      if (heatToggle.checked) entry.heat.addTo(entry.map);
-      else entry.map.removeLayer(entry.heat);
+      if (heatToggle.checked) {
+        entry.heat.addTo(entry.map);
+        if (entry.hydroLayer) entry.hydroLayer.addTo(entry.map);
+      } else {
+        entry.map.removeLayer(entry.heat);
+        if (entry.hydroLayer) entry.map.removeLayer(entry.hydroLayer);
+      }
+    });
+
+    var optimalToggle = document.getElementById("optimalToggle-" + run.run_id);
+    optimalToggle.addEventListener("change", function () {
+      if (!entry.optimalLayer) return;
+      if (optimalToggle.checked) {
+        entry.optimalLayer.addTo(entry.map);
+      } else {
+        entry.map.removeLayer(entry.optimalLayer);
+      }
     });
 
     var clusterToggle = document.getElementById("clusterToggle-" + run.run_id);
     clusterToggle.addEventListener("change", function () {
-      // Turning clustering off simply widens the grid cell to nothing, so the
-      // same code path draws both — no second rendering mode to keep in sync.
       entry.cluster.options.disabled = !clusterToggle.checked;
       entry.cluster.render();
     });
   }
+
 
   function buildTimeline(run, entry) {
     var host = document.getElementById("timeline-" + run.run_id);
