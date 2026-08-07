@@ -87,22 +87,25 @@ def predict_upstream_origin(site_id="GOA-MANDOVI", site_lat=15.4989, site_lon=73
     upstream_azimuth_rad = math.radians((flow_azimuth_deg + 180.0) % 360.0)
 
     # 1 degree latitude ~ 111 km; 1 degree longitude ~ 111 * cos(lat) km
+    cos_site_lat = max(0.01, math.cos(math.radians(site_lat)))
     delta_lat = (dist_km * math.cos(upstream_azimuth_rad)) / 111.0
-    delta_lon = (dist_km * math.sin(upstream_azimuth_rad)) / (111.0 * math.cos(math.radians(site_lat)))
+    delta_lon = (dist_km * math.sin(upstream_azimuth_rad)) / (111.0 * cos_site_lat)
 
     origin_lat = float(round(site_lat + delta_lat, 5))
     origin_lon = float(round(site_lon + delta_lon, 5))
 
     # Build uncertainty bounding polygon (8-point ellipse accounting for map inaccuracy)
     polygon_points = []
+    cos_orig_lat = max(0.01, math.cos(math.radians(origin_lat)))
     unc_lat_deg = uncertainty_km / 111.0
-    unc_lon_deg = uncertainty_km / (111.0 * math.cos(math.radians(origin_lat)))
+    unc_lon_deg = uncertainty_km / (111.0 * cos_orig_lat)
 
     for angle_deg in range(0, 360, 45):
         rad = math.radians(angle_deg)
         plat = origin_lat + unc_lat_deg * math.cos(rad)
         plon = origin_lon + unc_lon_deg * math.sin(rad)
         polygon_points.append([round(plat, 5), round(plon, 5)])
+
 
     return {
         "site_id": site_id,
