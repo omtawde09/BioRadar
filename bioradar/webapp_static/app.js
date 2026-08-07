@@ -1226,11 +1226,14 @@
     wireExports(run);
     drawMap(run);
 
-    host.querySelectorAll("[data-pva]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        openPvaModal(btn.dataset.pva);
-      });
+    host.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-pva]");
+      if (btn) {
+        var sp = btn.getAttribute("data-pva") || btn.dataset.pva;
+        if (sp) openPvaModal(sp);
+      }
     });
+
 
     stagger(host, ".kpi");
     stagger(host, "table.data tbody tr");
@@ -1248,13 +1251,13 @@
      so — and saying what it usually means — is the difference between a judge
      seeing a working system and a judge seeing a blank screen. */
   function emptyResultNotice(report) {
-    if (!report.samples) {
-      return UI.state("no-results", t("state.noSpecies"), t("state.noSpeciesBody"));
-    }
-    if (!report.named_species && !report.placeholders) {
-      return UI.state("no-results", t("state.noSpecies"), t("state.noSpeciesBody"));
-    }
     var top = report.top_species || [];
+    if (!report.samples && !top.length) {
+      return UI.state("no-results", t("state.noSpecies"), t("state.noSpeciesBody"));
+    }
+    if (!report.named_species && !report.placeholders && !top.length) {
+      return UI.state("no-results", t("state.noSpecies"), t("state.noSpeciesBody"));
+    }
     var confident = top.filter(function (s) { return s.confidence >= 0.7; });
     if (top.length && !confident.length) {
       return UI.state("low-confidence", t("state.lowConfidence"), t("state.lowConfidenceBody"));
@@ -1283,13 +1286,14 @@
       "<th class='num'>Confidence</th><th>Field status</th><th>PVA Trajectory</th></tr></thead><tbody>" +
       rows.map(function (s) {
         var v = s.verification || {};
-        return "<tr><td><em>" + esc(s.name) + "</em>" + (s.placeholder ? " †" : "") + "</td>" +
+        var nameStr = s.name || s.scientific_name || "Taxon";
+        return "<tr><td><em>" + esc(nameStr) + "</em>" + (s.placeholder ? " †" : "") + "</td>" +
           '<td><span class="dot-swatch" style="background:' + UI.categorical(s.phylum) +
             '"></span>' + esc(s.phylum || "—") + "</td>" +
           '<td class="num">' + UI.num(s.reads) + "</td>" +
           '<td class="num">' + Number(s.confidence).toFixed(3) + "</td>" +
           "<td>" + UI.badge(v.status || "unverified", v.status || "unverified") + "</td>" +
-          '<td>' + UI.button("PVA Risk", { size: "sm", variant: "subtle", icon: "activity", data: { pva: s.name } }) + '</td></tr>';
+          '<td>' + UI.button("PVA Risk", { size: "sm", variant: "primary", icon: "activity", data: { pva: nameStr } }) + '</td></tr>';
       }).join("") + "</tbody></table></div>" +
       (report.placeholders
         ? '<div class="hint" style="margin-top:12px">† an unidentified <code>&lt;taxon&gt; sp.</code> ' +
@@ -1297,6 +1301,7 @@
           "Counting these as species would overstate what the data supports.</div>"
         : "");
   }
+
 
 
   function exportCard(run) {
