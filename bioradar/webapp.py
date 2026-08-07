@@ -1068,9 +1068,13 @@ class Handler(BaseHTTPRequestHandler):
 
             if site_id_param and site_id_param != "all":
                 target_pt = next((p for p in points if p.get("site_id") == site_id_param), points[0] if points else {})
-                site_lat = float(target_pt.get("latitude", 15.4989))
-                site_lon = float(target_pt.get("longitude", 73.8278))
-                reads = int(target_pt.get("total_reads", 1200))
+
+                try:
+                    site_lat = float(target_pt.get("latitude") or 15.4989)
+                    site_lon = float(target_pt.get("longitude") or 73.8278)
+                    reads = int(target_pt.get("total_reads") or target_pt.get("reads") or 1200)
+                except (ValueError, TypeError):
+                    site_lat, site_lon, reads = 15.4989, 73.8278, 1200
 
                 trace_res = pinn_tracer.predict_upstream_origin(
                     site_id=site_id_param,
@@ -1082,6 +1086,7 @@ class Handler(BaseHTTPRequestHandler):
                     waterbody_type=target_pt.get("waterbody_type", "estuary")
                 )
                 return self._json(200, trace_res)
+
             else:
                 all_res = pinn_tracer.predict_all_upstream_origins_for_run(points, species_name=species_param)
                 return self._json(200, all_res)

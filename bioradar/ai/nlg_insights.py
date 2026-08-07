@@ -135,14 +135,17 @@ def generate_executive_briefing(
         ml_prediction = {}
         if is_inv:
             try:
+                site_item = sites[0] if (isinstance(sites, (list, tuple)) and len(sites) > 0) else "Mandovi Estuary"
+                site_name_str = site_item if isinstance(site_item, str) else (site_item.get("site_id", "Mandovi Estuary") if isinstance(site_item, dict) else "Mandovi Estuary")
                 ml_prediction = ias_model.predict_establishment_risk(
                     species_name=name,
-                    site_name=sites[0] if isinstance(sites, (list, tuple)) and sites else "Mandovi Estuary",
+                    site_name=site_name_str,
                     read_count=reads,
                     total_reads=total_detections or 4694
                 )
             except Exception:
                 ml_prediction = {}
+
 
         threat_matrix.append({
             "scientific_name": name,
