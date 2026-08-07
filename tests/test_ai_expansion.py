@@ -74,6 +74,25 @@ def test_nlg_executive_briefing():
     assert len(briefing["action_plan"]) >= 1
 
 
+def test_nlg_executive_briefing_dict_sites_and_malformed_inputs():
+    """Verify NLG briefing handles sites as dict objects and unexpected data types cleanly."""
+    analysis_dict_sites = {
+        "species": [
+            {"name": "Oreochromis mossambicus", "reads": 1200, "sites": [{"site_id": "GOA-ZUARI", "reads": 1200}]},
+            {"name": "Tor putitora", "reads": 300, "sites": [{"site_id": "GOA-MANDOVI", "reads": 300}]}
+        ],
+        "samples": "invalid_sample_count_str",
+        "site_species": None,
+        "phyla": [],
+        "detections": 1500
+    }
+    briefing = nlg_insights.generate_executive_briefing(analysis_dict_sites, "Dict Sites Survey")
+    assert len(briefing["threat_matrix"]) == 2
+    assert briefing["threat_matrix"][0]["scientific_name"] == "Oreochromis mossambicus"
+    assert "establishment_prob" in briefing["threat_matrix"][0]
+
+
+
 
 def test_extinction_risk_ml():
     prediction = extinction_risk.predict_extinction_risk("Tor putitora", invasive_co_occurring=True)

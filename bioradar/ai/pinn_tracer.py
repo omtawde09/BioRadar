@@ -173,11 +173,16 @@ def predict_all_upstream_origins_for_run(map_points, species_name="Clarias garie
 
     for idx, pt in enumerate(map_points):
         site_id = pt.get("site_id") or f"SITE-{idx+1}"
-        site_lat = float(pt.get("latitude", 15.4989))
-        site_lon = float(pt.get("longitude", 73.8278))
-        reads = int(pt.get("total_reads") or pt.get("reads") or 1200)
+        try:
+            site_lat = float(pt.get("latitude") or 15.4989)
+            site_lon = float(pt.get("longitude") or 73.8278)
+            reads = int(pt.get("total_reads") or pt.get("reads") or 1200)
+        except (ValueError, TypeError):
+            site_lat, site_lon, reads = 15.4989, 73.8278, 1200
+
         wb_type = pt.get("waterbody_type") or "estuary"
         azimuth = azimuths[idx % len(azimuths)]
+
 
         trace = predict_upstream_origin(
             site_id=site_id,

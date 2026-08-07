@@ -87,7 +87,9 @@ def predict_establishment_risk(species_name, site_name="Mandovi Estuary", waterb
     read_share_pct = (rc / (tr or 1.0)) * 100.0
     hab_spec_num = HABITAT_SPECIFICITY_MAP.get(species_info.get("habitat_specificity", "medium"), 2.0)
     prot_stat_num = PROTECTED_STATUS_MAP.get((protected_status or "unprotected").lower(), 1.0)
-    spec_bod = float(species_info.get("water_bod", water_bod or 2.5))
+    spec_bod_val = species_info.get("water_bod")
+    spec_bod = float(spec_bod_val if spec_bod_val is not None else (water_bod if water_bod is not None else 2.5))
+
 
 
     wb_type = (waterbody_type or "estuary").lower()

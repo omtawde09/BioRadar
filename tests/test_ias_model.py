@@ -12,9 +12,24 @@ def test_predict_establishment_risk():
     )
     assert res["species_name"] == "Oreochromis mossambicus"
     assert "establishment_probability" in res
-    assert res["establishment_probability"] >= 0.0 and res["establishment_probability"] <= 100.0
+    assert 0.0 <= res["establishment_probability"] <= 100.0
     assert res["risk_level"] in ["CRITICAL_INVASION_TAKEOVER", "MODERATE_ESTABLISHMENT_RISK", "LOW_TRANSIENT_DRIFT"]
     assert len(res["threat_drivers"]) > 0
+
+
+def test_predict_establishment_risk_invalid_types_and_unlisted_species():
+    """Verify non-numeric types and unlisted species are safely handled without raising exceptions."""
+    res = predict_establishment_risk(
+        species_name="Unknown Exotic Fish",
+        site_name=None,
+        waterbody_type=None,
+        read_count="invalid_read_str",
+        total_reads=None,
+        water_bod=None,
+        protected_status=None
+    )
+    assert res["species_name"] == "Unknown Exotic Fish"
+    assert 0.0 <= res["establishment_probability"] <= 100.0
 
 
 def test_predict_all_invasives_for_run():
