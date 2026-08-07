@@ -1198,7 +1198,7 @@
           entry.hydroLayer = new MapKit.HydroCorridorLayer(spreadData.hydro_corridors);
           var heatToggle = document.getElementById("heatToggle-" + run.run_id);
           if (heatToggle && heatToggle.checked) {
-            entry.hydroLayer.addTo(entry.map);
+            entry.map.addLayer(entry.hydroLayer);
           }
         }
       })
@@ -1213,10 +1213,11 @@
           entry.optimalLayer = new MapKit.RecommendedSiteLayer(recData.recommendations);
           var optimalToggle = document.getElementById("optimalToggle-" + run.run_id);
           if (!optimalToggle || optimalToggle.checked) {
-            entry.optimalLayer.addTo(entry.map);
+            entry.map.addLayer(entry.optimalLayer);
           }
         }
       })
+
       .catch(function () {});
 
 
@@ -1512,12 +1513,11 @@
 
     var heatToggle = document.getElementById("heatToggle-" + run.run_id);
     heatToggle.addEventListener("change", function () {
+      if (!entry.hydroLayer) return;
       if (heatToggle.checked) {
-        entry.heat.addTo(entry.map);
-        if (entry.hydroLayer) entry.hydroLayer.addTo(entry.map);
+        entry.map.addLayer(entry.hydroLayer);
       } else {
-        entry.map.removeLayer(entry.heat);
-        if (entry.hydroLayer) entry.map.removeLayer(entry.hydroLayer);
+        entry.map.removeLayer(entry.hydroLayer);
       }
     });
 
@@ -1525,7 +1525,7 @@
     optimalToggle.addEventListener("change", function () {
       if (!entry.optimalLayer) return;
       if (optimalToggle.checked) {
-        entry.optimalLayer.addTo(entry.map);
+        entry.map.addLayer(entry.optimalLayer);
       } else {
         entry.map.removeLayer(entry.optimalLayer);
       }
@@ -1537,6 +1537,7 @@
       entry.cluster.render();
     });
   }
+
 
 
   function buildTimeline(run, entry) {
