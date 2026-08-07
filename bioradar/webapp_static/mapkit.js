@@ -538,52 +538,92 @@
     var self = this;
 
     (this.corridors || []).forEach(function (corridor) {
+      // 1. Water Body Shoreline Boundary Polygon
+      var wPoly = corridor.water_boundary_polygon || [];
+      if (wPoly.length >= 3) {
+        var shoreline = L.polygon(wPoly, {
+          color: "#0284c7",
+          weight: 2,
+          opacity: 0.85,
+          dashArray: "4, 4",
+          fillColor: "#0284c7",
+          fillOpacity: 0.08
+        });
+        shoreline.bindTooltip("<strong>" + UI.esc(corridor.waterway_name || "Water Body Boundary") + "</strong><br>Shoreline Boundary Edge", { direction: "top" });
+        self.group.addLayer(shoreline);
+      }
+
+      // 2. Water-Constrained Spread Zone Polygons
+      var zones = corridor.spread_zones || [];
+      zones.forEach(function (z) {
+        if (z.polygon_coords && z.polygon_coords.length >= 3) {
+          var zonePoly = L.polygon(z.polygon_coords, {
+            color: z.color || "#ef4444",
+            weight: 1.5,
+            opacity: 0.75,
+            fillColor: z.color || "#ef4444",
+            fillOpacity: z.fill_opacity || 0.35
+          });
+          var bracketLabel = z.time_bracket === "1-3_months" ? "1–3 Months (Immediate Front)" :
+                            (z.time_bracket === "3-6_months" ? "3–6 Months (Intermediate Front)" :
+                            (z.time_bracket === "6-12_months" ? "6–12 Months (Expanding Front)" : "12+ Months (Distal Front)"));
+          zonePoly.bindTooltip(
+            "<strong>" + UI.esc(corridor.waterway_name || "Water Body") + "</strong><br>" +
+            "Invasive Spread Zone: " + bracketLabel + "<br>" +
+            "Constrained inside blue water shoreline",
+            { direction: "top" }
+          );
+          self.group.addLayer(zonePoly);
+        }
+      });
+
+      // 3. Water Corridor Waypoints & Flow Polylines
       var waypoints = corridor.waypoints || [];
-      if (waypoints.length < 2) return;
+      if (waypoints.length >= 2) {
+        for (var i = 1; i < waypoints.length; i++) {
+          var p1 = waypoints[i - 1];
+          var p2 = waypoints[i];
+          var color = p2.color || "#ef4444";
+          var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo") : "Spread Front";
 
-      for (var i = 1; i < waypoints.length; i++) {
-        var p1 = waypoints[i - 1];
-        var p2 = waypoints[i];
-        var color = p2.color || "#ef4444";
-        var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo") : "Spread Front";
+          var polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+            color: color,
+            weight: 4,
+            opacity: 0.95,
+            lineCap: "round",
+            lineJoin: "round"
+          });
 
-        var polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
-          color: color,
-          weight: 5,
-          opacity: 0.88,
-          dashArray: p2.time_bracket === "12+_months" ? "6, 6" : null,
-          lineCap: "round",
-          lineJoin: "round"
-        });
+          polyline.bindTooltip(
+            "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
+            "Arrival Front: " + timeLabel + " (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
+            "Risk: " + (p2.colonisation_risk || "HIGH"),
+            { direction: "top" }
+          );
 
-        polyline.bindTooltip(
-          "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
-          "Arrival Front: " + timeLabel + " (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
-          "Risk: " + (p2.colonisation_risk || "HIGH"),
-          { direction: "top" }
-        );
+          self.group.addLayer(polyline);
 
-        self.group.addLayer(polyline);
+          var waypointMarker = L.circleMarker([p2.lat, p2.lon], {
+            radius: 4.5,
+            fillColor: color,
+            color: "#ffffff",
+            weight: 1.5,
+            fillOpacity: 0.95
+          });
 
-        var waypointMarker = L.circleMarker([p2.lat, p2.lon], {
-          radius: 5,
-          fillColor: color,
-          color: "#ffffff",
-          weight: 1.5,
-          fillOpacity: 0.95
-        });
+          waypointMarker.bindPopup(
+            '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Waterway") + '</strong><br>' +
+            'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km</strong><br>' +
+            'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
+            'Colonisation Threat: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
+          );
 
-        waypointMarker.bindPopup(
-          '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Waterway") + '</strong><br>' +
-          'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km</strong><br>' +
-          'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
-          'Colonisation Threat: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
-        );
-
-        self.group.addLayer(waypointMarker);
+          self.group.addLayer(waypointMarker);
+        }
       }
     });
   };
+
 
   /* ── Time slider ──────────────────────────────────────────────────────
      The temporal dimension of a survey is invisible without one: the analysis
