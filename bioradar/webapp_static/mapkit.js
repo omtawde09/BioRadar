@@ -182,22 +182,66 @@
     });
   };
 
+  /* ── Map Legend ─────────────────────────────────────────────────────── */
+
+  var MapLegendControl = L.Control.extend({
+    options: { position: "bottomright" },
+    onAdd: function (map) {
+      var container = L.DomUtil.create("div", "leaflet-bar map-legend-card");
+      container.style.background = "var(--bg-surface, #1e293b)";
+      container.style.color = "var(--text-primary, #f8fafc)";
+      container.style.padding = "10px 14px";
+      container.style.borderRadius = "8px";
+      container.style.boxShadow = "0 4px 12px rgba(0,0,0,0.45)";
+      container.style.fontSize = "12px";
+      container.style.lineHeight = "1.6";
+      container.style.border = "1px solid var(--border, #334155)";
+
+      container.innerHTML =
+        '<div style="font-weight:700;margin-bottom:6px;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-secondary,#94a3b8)">Map Legend</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;box-shadow:0 0 4px #ef4444"></span>' +
+          '<span><strong>Invasive Species</strong> (Alert)</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f97316;box-shadow:0 0 4px #f97316"></span>' +
+          '<span><strong>Threatened Taxa</strong> (Risk)</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#10b981;box-shadow:0 0 4px #10b981"></span>' +
+          '<span><strong>Native Community</strong> (Normal)</span>' +
+        '</div>';
+      return container;
+    }
+  });
+
   ClusterLayer.prototype._marker = function (point) {
-    var colour = (this.options.colorFor && this.options.colorFor(point)) || "#22d3a6";
+    var colour = "#10b981"; // Normal/Native green
+    if (point.has_invasive || point.highest_severity === "invasive") {
+      colour = "#ef4444"; // Invasive red
+    } else if (point.has_threatened || point.highest_severity === "threatened") {
+      colour = "#f97316"; // Threatened orange
+    } else if (this.options.colorFor) {
+      colour = this.options.colorFor(point) || "#10b981";
+    }
+
+    var symbol = (point.has_invasive || point.highest_severity === "invasive") ? "!" :
+                 ((point.has_threatened || point.highest_severity === "threatened") ? "🛡" : "•");
+
     var marker = L.marker([point.latitude, point.longitude], {
       title: point.site_id,
       keyboard: true,
       alt: "Sampling site " + point.site_id,
       icon: L.divIcon({
-        className: "site-pin",
-        html: '<svg viewBox="0 0 24 32" width="26" height="34" aria-hidden="true">' +
-              '<path d="M12 0C5.4 0 0 5.4 0 12c0 8.4 12 20 12 20s12-11.6 12-20c0-6.6-5.4-12-12-12z" ' +
-              'fill="' + colour + '" stroke="rgba(0,0,0,.55)" stroke-width="1.5"/>' +
-              '<circle cx="12" cy="12" r="4.5" fill="rgba(0,0,0,.65)"/></svg>',
-        iconSize: [26, 34], iconAnchor: [13, 34], popupAnchor: [0, -32]
+        className: "site-pin-marker",
+        html: '<svg viewBox="0 0 28 38" width="28" height="38" aria-hidden="true" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,0.5))">' +
+              '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.8 14 24 14 24s14-14.2 14-24C28 6.27 21.73 0 14 0z" fill="' + colour + '" stroke="#ffffff" stroke-width="1.8"/>' +
+              '<circle cx="14" cy="14" r="7.5" fill="#ffffff"/>' +
+              '<text x="14" y="18" text-anchor="middle" font-size="11" font-weight="900" fill="' + colour + '">' + symbol + '</text></svg>',
+        iconSize: [28, 38], iconAnchor: [14, 38], popupAnchor: [0, -36]
       })
     });
-    if (this.options.popupFor) marker.bindPopup(this.options.popupFor(point), { maxWidth: 300 });
+    if (this.options.popupFor) marker.bindPopup(this.options.popupFor(point), { maxWidth: 320 });
     if (this.options.onSelect) {
       marker.on("click", function () { this.options.onSelect(point); }.bind(this));
     }
@@ -206,22 +250,24 @@
 
   ClusterLayer.prototype._cluster = function (members) {
     var lat = 0, lon = 0, species = 0;
+    var hasInvasive = false, hasThreatened = false;
     members.forEach(function (m) {
       lat += m.latitude; lon += m.longitude; species += m.species_count || 0;
+      if (m.has_invasive || m.highest_severity === "invasive") hasInvasive = true;
+      if (m.has_threatened || m.highest_severity === "threatened") hasThreatened = true;
     });
     lat /= members.length; lon /= members.length;
-    // Size grows with the square root of the count: linear sizing makes a
-    // 40-point cluster forty times the area of a single point and swallows the
-    // map. Area proportional to count is the perceptually honest scaling.
-    var size = Math.min(56, 30 + Math.sqrt(members.length) * 6);
-    var colour = UI.heat(Math.min(1, members.length / 25));
+
+    var colour = hasInvasive ? "#ef4444" : (hasThreatened ? "#f97316" : "#10b981");
 
     var marker = L.marker([lat, lon], {
       icon: L.divIcon({
-        className: "cluster-pin",
-        html: '<div class="cluster-bubble" style="width:' + size + "px;height:" + size +
-              "px;background:" + colour + '">' + members.length + "</div>",
-        iconSize: [size, size], iconAnchor: [size / 2, size / 2]
+        className: "cluster-pin-marker",
+        html: '<svg viewBox="0 0 34 46" width="34" height="46" aria-hidden="true" style="filter:drop-shadow(0 4px 8px rgba(0,0,0,0.55))">' +
+              '<path d="M17 0C7.6 0 0 7.6 0 17c0 12 17 29 17 29s17-17 17-29C34 7.6 26.4 0 17 0z" fill="' + colour + '" stroke="#ffffff" stroke-width="2"/>' +
+              '<circle cx="17" cy="17" r="11" fill="#ffffff"/>' +
+              '<text x="17" y="21" text-anchor="middle" font-size="12" font-weight="900" fill="#0f172a">' + members.length + '</text></svg>',
+        iconSize: [34, 46], iconAnchor: [17, 46]
       }),
       title: members.length + " sampling sites"
     });
@@ -229,8 +275,6 @@
     var self = this;
     marker.on("click", function () {
       var bounds = L.latLngBounds(members.map(function (m) { return [m.latitude, m.longitude]; }));
-      // A cluster of points at one coordinate cannot be split by zooming, so
-      // show its contents instead of zooming forever.
       if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
         marker.bindPopup(
           '<div class="pop"><div class="pop-site">' + members.length + " sites here</div>" +
@@ -249,6 +293,7 @@
     );
     return marker;
   };
+
 
   /* ── Heatmap ──────────────────────────────────────────────────────────
      A canvas overlay: each point paints a radial alpha gradient, the
@@ -463,6 +508,88 @@
     }
   });
 
+  /* ── Hydro Corridor Network Layer ────────────────────────────────────── */
+
+  var HydroCorridorLayer = L.LayerGroup.extend({
+    initialize: function (corridorData, options) {
+      L.LayerGroup.prototype.initialize.call(this);
+      this.corridors = corridorData || [];
+      this.options = options || {};
+      this.render();
+    },
+
+    render: function () {
+      this.clearLayers();
+      var self = this;
+
+      (this.corridors || []).forEach(function (corridor) {
+        var waypoints = corridor.waypoints || [];
+        if (waypoints.length < 2) return;
+
+        for (var i = 1; i < waypoints.length; i++) {
+          var p1 = waypoints[i - 1];
+          var p2 = waypoints[i];
+          var color = p2.color || "#ef4444";
+          var widthKm = p2.channel_width_km || 1.8;
+
+          var outerWeight = Math.max(16, Math.min(38, Math.round(widthKm * 14)));
+
+          var outerTube = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+            color: color,
+            weight: outerWeight,
+            opacity: 0.22,
+            lineCap: "round",
+            lineJoin: "round"
+          });
+          self.addLayer(outerTube);
+
+          var innerTube = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+            color: color,
+            weight: Math.round(outerWeight * 0.55),
+            opacity: 0.50,
+            lineCap: "round",
+            lineJoin: "round"
+          });
+          self.addLayer(innerTube);
+
+          var coreLine = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+            color: "#ffffff",
+            weight: 2.5,
+            opacity: 0.90,
+            lineCap: "round",
+            lineJoin: "round"
+          });
+
+          var timeLabel = p2.arrival_months ? (p2.arrival_months + " Mo Front") : "Spread Front";
+          coreLine.bindTooltip(
+            "<strong>" + UI.esc(corridor.waterway_name || "Water Corridor") + "</strong><br>" +
+            "Arrival Front: <strong>" + timeLabel + "</strong> (" + (p2.distance_from_origin_km || 0) + " km downstream)<br>" +
+            "Threat Risk: <span style='color:" + color + ";font-weight:700'>" + (p2.colonisation_risk || "HIGH") + "</span>",
+            { direction: "top" }
+          );
+          self.addLayer(coreLine);
+
+          var nodeMarker = L.circleMarker([p2.lat, p2.lon], {
+            radius: 5.5,
+            fillColor: color,
+            color: "#ffffff",
+            weight: 2.0,
+            fillOpacity: 1.0
+          });
+
+          nodeMarker.bindPopup(
+            '<div style="font-size:12px"><strong>' + UI.esc(corridor.waterway_name || "Water Corridor") + '</strong><br>' +
+            'Dispersal Distance: <strong>' + (p2.distance_from_origin_km || 0) + ' km downstream</strong><br>' +
+            'Estimated Arrival: <strong>' + timeLabel + '</strong><br>' +
+            'Colonisation Risk: <span style="color:' + color + ';font-weight:700">' + (p2.colonisation_risk || "HIGH") + '</span></div>'
+          );
+
+          self.addLayer(nodeMarker);
+        }
+      });
+    }
+  });
+
   /* ── Time slider ──────────────────────────────────────────────────────
      The temporal dimension of a survey is invisible without one: the analysis
      notes that the Time Machine feature currently has no visual representation
@@ -533,13 +660,170 @@
     return { node: wrap, dates: unique };
   }
 
+  /* ── Recommended Sampling Site Layer ────────────────────────────────────── */
+
+  var RecommendedSiteLayer = L.LayerGroup.extend({
+    initialize: function (recommendations, options) {
+      L.LayerGroup.prototype.initialize.call(this);
+      this.recs = recommendations || [];
+      this.options = options || {};
+      this.render();
+    },
+
+    render: function () {
+      this.clearLayers();
+      var self = this;
+
+      (this.recs || []).forEach(function (rec) {
+        var lat = rec.latitude;
+        var lon = rec.longitude;
+        if (!lat || !lon) return;
+
+        var rank = rec.rank || 1;
+        var score = rec.composite_priority_score || 85;
+        var priorityTag = rec.priority || "RECOMMENDED SITE";
+        var priorityColor = rec.priority_color || "#06b6d4";
+
+        var icon = L.divIcon({
+          className: "recommended-pin-marker",
+          html: '<svg viewBox="0 0 32 44" width="32" height="44" aria-hidden="true" style="filter:drop-shadow(0 4px 10px rgba(6,182,212,0.65))">' +
+                '<path d="M16 0C7.2 0 0 7.2 0 16c0 11.2 16 28 16 28s16-16.8 16-28C32 7.2 24.8 0 16 0z" fill="#06b6d4" stroke="#ffffff" stroke-width="2"/>' +
+                '<circle cx="16" cy="16" r="10" fill="#0891b2"/>' +
+                '<circle cx="16" cy="16" r="6" fill="#ffffff"/>' +
+                '<text x="16" y="20" text-anchor="middle" font-size="11" font-weight="900" fill="#ffffff">' + rank + '</text>' +
+                '</svg>',
+          iconSize: [32, 44],
+          iconAnchor: [16, 44]
+        });
+
+        var marker = L.marker([lat, lon], { icon: icon, title: rec.site_name || "Recommended Site" });
+
+        var popupHtml =
+          '<div style="font-size:12px;min-width:220px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+          '<span style="background:' + priorityColor + ';color:#ffffff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800">' + UI.esc(priorityTag) + '</span>' +
+          '<span style="font-weight:900;color:#0891b2;font-size:14px">Score ' + score + '/100</span>' +
+          '</div>' +
+          '<strong>' + UI.esc(rec.site_name || "Optimal Sampling Site") + '</strong><br>' +
+          '<div style="margin-top:6px;font-size:11px;line-height:1.5;color:#475569">' +
+          '🎯 <strong>Target Species:</strong> ' + UI.esc(rec.target_species || "Multi-species") + '<br>' +
+          '📈 <strong>Beta-Diversity Gain:</strong> ' + (rec.complementarity_gain || 90) + '%<br>' +
+          '⚠️ <strong>Bottleneck Risk:</strong> ' + (rec.invasive_bottleneck_risk || 80) + '%<br>' +
+          '📉 <strong>Uncertainty Reduction:</strong> ' + (rec.uncertainty_reduction || 85) + '%<br>' +
+          '</div>' +
+          '<div style="margin-top:8px;font-size:11px;background:#f1f5f9;padding:6px;border-radius:4px;border-left:3px solid #06b6d4">' +
+          UI.esc(rec.justification || "Recommended location to maximize biodiversity discovery.") +
+          '</div>' +
+          '</div>';
+
+        marker.bindPopup(popupHtml);
+        marker.bindTooltip("🎯 " + UI.esc(rec.site_name) + " (Score " + score + "/100)", { direction: "top" });
+
+        self.addLayer(marker);
+      });
+    }
+  });
+
+
+  /* ── PINN eDNA Upstream Origin Layer (Physics-Informed Neural Network) ── */
+
+  var PINNPlumeLayer = L.LayerGroup.extend({
+    initialize: function (pinnData, options) {
+      L.LayerGroup.prototype.initialize.call(this, [], options);
+      this.pinnData = pinnData;
+      this.render();
+    },
+
+    setPlumeData: function (pinnData) {
+      this.pinnData = pinnData;
+      this.render();
+    },
+
+    render: function () {
+      this.clearLayers();
+      if (!this.pinnData || !this.pinnData.geojson) return;
+      var self = this;
+      var pinn = this.pinnData;
+      var origin = pinn.predicted_origin || {};
+
+      (pinn.geojson.features || []).forEach(function (feat) {
+        var props = feat.properties || {};
+        var geom = feat.geometry || {};
+        var siteLabel = props.site_id ? " (" + props.site_id + ")" : "";
+
+        if (props.type === "flow_line" && geom.type === "LineString") {
+          var latlngs = (geom.coordinates || []).map(function (c) { return [c[1], c[0]]; });
+          var line = L.polyline(latlngs, {
+            color: "#ec4899",
+            weight: 4,
+            opacity: 0.9,
+            dashArray: "8, 6",
+            lineCap: "round"
+          });
+          line.bindTooltip("⚡ PINN Upstream Flow Path" + siteLabel, { sticky: true });
+          self.addLayer(line);
+        } else if (props.type === "uncertainty_bounds" && geom.type === "Polygon") {
+          var polyCoords = ((geom.coordinates && geom.coordinates[0]) || []).map(function (c) { return [c[1], c[0]]; });
+          var poly = L.polygon(polyCoords, {
+            color: "#8b5cf6",
+            weight: 2,
+            dashArray: "4, 4",
+            fillColor: "#8b5cf6",
+            fillOpacity: 0.25
+          });
+          poly.bindTooltip("⚠️ Map Data Uncertainty Bounds" + siteLabel, { sticky: true });
+          self.addLayer(poly);
+        } else if (props.type === "origin_beacon" && geom.type === "Point") {
+          var ptCoords = [geom.coordinates[1], geom.coordinates[0]];
+          var beaconIcon = L.divIcon({
+            className: "pinn-beacon-marker",
+            html: '<div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center">' +
+                  '<span style="position:absolute;width:36px;height:36px;border-radius:50%;background:#ec4899;opacity:0.4;animation:pinnPulse 1.8s infinite ease-out"></span>' +
+                  '<span style="position:absolute;width:24px;height:24px;border-radius:50%;background:#8b5cf6;opacity:0.6"></span>' +
+                  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#ffffff" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>' +
+                  '</div>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+          });
+
+          var marker = L.marker(ptCoords, { icon: beaconIcon, title: "PINN Origin Point " + siteLabel });
+          var popupHtml =
+            '<div style="font-size:12px;min-width:240px;color:var(--text-primary,#f8fafc)">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+            '<span style="background:#ec4899;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:900">PINN REVERSE ORIGIN</span>' +
+            '<span style="font-weight:800;color:#ec4899;font-size:12px">' + UI.esc(props.site_id || "") + '</span>' +
+            '</div>' +
+            '<strong>' + UI.esc(props.label || "Upstream eDNA Release Point") + '</strong><br>' +
+            '<div style="margin-top:6px;font-size:11px;line-height:1.6;color:var(--text-secondary,#cbd5e1)">' +
+            '📍 <strong>Location:</strong> ' + ptCoords[0] + ', ' + ptCoords[1] + '<br>' +
+            '⚠️ <strong>Map Uncertainty Margin:</strong> Factored into bounding ellipse<br>' +
+            '</div>' +
+            '</div>';
+
+          marker.bindPopup(popupHtml);
+          marker.bindTooltip("⚡ " + UI.esc(props.label || "PINN Origin"), { direction: "top" });
+          self.addLayer(marker);
+        }
+      });
+
+    }
+  });
+
   global.BioRadarMap = {
     BASEMAPS: BASEMAPS,
     prefersDarkTiles: prefersDarkTiles,
     FullscreenControl: FullscreenControl,
     MeasureControl: MeasureControl,
+    MapLegendControl: MapLegendControl,
     ClusterLayer: ClusterLayer,
     HeatLayer: HeatLayer,
+    HydroCorridorLayer: HydroCorridorLayer,
+    RecommendedSiteLayer: RecommendedSiteLayer,
+    PINNPlumeLayer: PINNPlumeLayer,
     timeline: timeline
   };
+
 })(window);
+
+
+

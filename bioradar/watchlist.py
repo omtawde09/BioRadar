@@ -112,21 +112,27 @@ def screen(
         if reads < min_reads:
             continue
 
-        alerts.append(
-            {
-                "scientific_name": name,
-                "common_name": row.get("common_name", ""),
-                "status": status,
-                "severity": SEVERITY.get(status, "info"),
-                "message": MESSAGES.get(status, ""),
-                "reads": reads,
-                "sites": sorted(entry.get("sites", ())),
-                "samples": sorted(entry.get("samples", ())),
-                "confidence": round(float(entry.get("max_confidence", 0) or 0), 3),
-                "family": row.get("family", "") or entry.get("family", ""),
-                "verification": entry.get("verification", {}),
-            }
-        )
+        alert_obj = {
+            "scientific_name": name,
+            "common_name": row.get("common_name", ""),
+            "status": status,
+            "severity": SEVERITY.get(status, "info"),
+            "message": MESSAGES.get(status, ""),
+            "reads": reads,
+            "sites": sorted(entry.get("sites", ())),
+            "samples": sorted(entry.get("samples", ())),
+            "confidence": round(float(entry.get("max_confidence", 0) or 0), 3),
+            "family": row.get("family", "") or entry.get("family", ""),
+            "verification": entry.get("verification", {}),
+        }
+        try:
+            from bioradar.ai import smart_alerts, xai_explainer
+            alert_obj["smart_briefing"] = smart_alerts.generate_smart_briefing(alert_obj, species)
+            alert_obj["xai_explanation"] = xai_explainer.explain_alert_decision(alert_obj)
+        except Exception:
+            pass
+
+        alerts.append(alert_obj)
 
     order = {"high": 0, "medium": 1, "info": 2}
     alerts.sort(key=lambda a: (order.get(a["severity"], 3), -a["reads"]))
@@ -137,3 +143,4 @@ def screen(
     summary["total"] = len(alerts)
 
     return {"alerts": alerts, "summary": summary, "watchlist_size": len(listed)}
+

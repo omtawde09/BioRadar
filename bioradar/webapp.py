@@ -796,6 +796,24 @@ def map_points(run_id: str) -> List[Dict[str, Any]]:
                         latitude=latitude, longitude=longitude)
             continue
 
+        site_species_list = [s for s in result["species"] if row["sample_id"] in s["samples"]]
+        has_inv = False
+        has_thr = False
+        try:
+            from bioradar.ai import knowledge_base
+            for sp in site_species_list:
+                prof = knowledge_base.get_species_profile(sp.get("name", ""))
+                if prof:
+                    st = prof.get("india_status", "")
+                    if st == "invasive":
+                        has_inv = True
+                    elif "endangered" in st or "vulnerable" in st or "threatened" in st:
+                        has_thr = True
+        except Exception:
+            pass
+
+        sev = "invasive" if has_inv else ("threatened" if has_thr else "normal")
+
         taxa = [
             {"name": s["name"], "reads": s["reads"], "phylum": s["phylum"]}
             for s in result["species"]
@@ -811,8 +829,12 @@ def map_points(run_id: str) -> List[Dict[str, Any]]:
             "species_count": summary["species_count"],
             "shannon": summary["shannon"],
             "top_taxa": taxa,
+            "has_invasive": has_inv,
+            "has_threatened": has_thr,
+            "highest_severity": sev,
         })
     return points
+
 
 
 def run_analysis_payload(run_id: str) -> Optional[Dict[str, Any]]:
@@ -958,6 +980,59 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/events":
             return self._stream_events()
 
+        if path.startswith("/api/species/") and path.endswith("/extinction-risk"):
+            species_name = path[len("/api/species/"): -len("/extinction-risk")].strip()
+            from urllib.parse import unquote
+            from bioradar.ai import extinction_risk
+            return self._json(200, extinction_risk.predict_extinction_risk(unquote(species_name)))
+
+        if path.startswith("/api/species/") and path.endswith("/establishment-risk"):
+            species_name = path[len("/api/species/"): -len("/establishment-risk")].strip()
+            from urllib.parse import unquote
+            from bioradar.ai import ias_model
+            return self._json(200, ias_model.predict_establishment_risk(unquote(species_name)))
+
+
+        if path.startswith("/api/v1/anomalies/") or path.startswith("/api/anomalies/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.analytics import anomaly
+            return self._json(200, anomaly.detect_anomalies(sample_id))
+
+        if path.startswith("/api/v1/zero-shot/") or path.startswith("/api/zero-shot/"):
+            asv_id = path.split("/")[-1]
+            from bioradar.ai import zero_shot
+            return self._json(200, zero_shot.classify_unknown("", asv_id=asv_id))
+
+        if path.startswith("/api/v1/forecast/") or path.startswith("/api/forecast/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.analytics import forecast
+            return self._json(200, forecast.generate_forecast(sample_id))
+
+        if path in {"/api/v1/satellite-alerts", "/api/satellite-alerts"}:
+            from bioradar.satellite import change_detection
+            return self._json(200, change_detection.check_site_changes("BR-GOA-001"))
+
+        if path in {"/api/v1/debate", "/api/debate"}:
+            from bioradar.ai import debate
+            res = debate.run_debate("BR-GOA-001", "Mandovi Estuary Conservation Strategy")
+            return self._json(200, res)
+
+        if path.startswith("/api/v1/debate/") or path.startswith("/api/debate/"):
+            debate_id = path.split("/")[-1]
+            from bioradar.ai import debate
+            debates = debate.load_debates()
+            if debate_id in debates:
+                return self._json(200, debates[debate_id])
+            return self._json(404, {"error": "debate not found"})
+
+        if path.startswith("/api/v1/nft/") or path.startswith("/api/nft/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.blockchain import nft
+            mints = nft.load_nft_mints()
+            if sample_id in mints:
+                return self._json(200, mints[sample_id])
+            return self._json(404, {"error": "nft mint not found"})
+
         if path.startswith("/api/runs/"):
             return self._run_route(path[len("/api/runs/"):])
 
@@ -974,9 +1049,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(404, {"error": "unknown run"})
 
         if len(parts) == 1:
-            return self._json(200, run_summary(job))
+            return self._json(200, run_summary(job, include_events=True))
 
         section = parts[1]
+        query = parse_qs(urlparse(self.path).query)
 
         if section == "report":
             with _ANALYSIS_LOCK:
@@ -1000,6 +1076,96 @@ class Handler(BaseHTTPRequestHandler):
 
         if section == "alerts":
             return self._json(200, run_alerts(run_id))
+
+        if section == "nlg-summary":
+            payload = run_analysis_payload(run_id)
+            if payload and payload.get("report"):
+                analysis_dict = payload["report"]
+            else:
+                with _ANALYSIS_LOCK:
+                    cached = _ANALYSIS_CACHE.get(run_id)
+                analysis_dict = cached["analysis"] if cached else {}
+            dataset_label = job.summary().get("dataset_name") or run_id
+            from bioradar.ai import nlg_insights
+            return self._json(200, nlg_insights.generate_executive_briefing(analysis_dict, dataset_label))
+
+        if section == "invasive-risk":
+            payload = run_analysis_payload(run_id)
+            if payload and payload.get("report"):
+                analysis_dict = payload["report"]
+            else:
+                with _ANALYSIS_LOCK:
+                    cached = _ANALYSIS_CACHE.get(run_id)
+                analysis_dict = cached["analysis"] if cached else {}
+            from bioradar.ai import ias_model
+            return self._json(200, {"invasive_risks": ias_model.predict_all_invasives_for_run(analysis_dict)})
+
+        if section == "pinn-origin-trace":
+            from bioradar.ai import pinn_tracer
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            site_id_param = query.get("site_id", [None])[0]
+            points = map_points(run_id)
+
+            if site_id_param and site_id_param != "all":
+                target_pt = next((p for p in points if p.get("site_id") == site_id_param), points[0] if points else {})
+
+                try:
+                    site_lat = float(target_pt.get("latitude") or 15.4989)
+                    site_lon = float(target_pt.get("longitude") or 73.8278)
+                    reads = int(target_pt.get("total_reads") or target_pt.get("reads") or 1200)
+                except (ValueError, TypeError):
+                    site_lat, site_lon, reads = 15.4989, 73.8278, 1200
+
+                trace_res = pinn_tracer.predict_upstream_origin(
+                    site_id=site_id_param,
+                    site_lat=site_lat,
+                    site_lon=site_lon,
+                    species_name=species_param,
+                    read_count=reads,
+                    total_reads=4694,
+                    waterbody_type=target_pt.get("waterbody_type", "estuary")
+                )
+                return self._json(200, trace_res)
+
+            else:
+                all_res = pinn_tracer.predict_all_upstream_origins_for_run(points, species_name=species_param)
+                return self._json(200, all_res)
+
+        if section == "blockchain-proof":
+            import bioradar.blockchain_ledger as ledger
+            points = map_points(run_id)
+            proof = ledger.generate_blockchain_proof(run_id, points)
+            return self._json(200, proof)
+
+
+
+
+
+
+        if section == "spread-prediction":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no analysis yet"})
+            from bioradar.ai import spread_prediction
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            try:
+                months_param = int(query.get("months", [6])[0])
+            except (ValueError, IndexError):
+                months_param = 6
+            points = map_points(run_id)
+            return self._json(200, spread_prediction.forecast_invasive_spread(species_param, points, months_ahead=months_param))
+
+
+        if section == "sampling-recommendations":
+            with _ANALYSIS_LOCK:
+                cached = _ANALYSIS_CACHE.get(run_id)
+            if not cached:
+                return self._json(404, {"error": "no analysis yet"})
+            from bioradar.ai import sampling_optimizer
+            species_param = query.get("species", ["Clarias gariepinus"])[0]
+            points = map_points(run_id)
+            return self._json(200, sampling_optimizer.recommend_sampling_locations(species_param, points))
 
         if section == "export" and len(parts) > 2:
             return self._export(run_id, parts[2])
@@ -1182,16 +1348,57 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        if path in {"/api/v1/debate", "/api/debate"}:
+            body = self._read_json() or {}
+            from bioradar.ai import debate
+            res = debate.run_debate(body.get("sample_id", "BR-GOA-001"), body.get("topic"))
+            return self._json(201, res)
+
+        if path in {"/api/v1/nft/mint", "/api/nft/mint"}:
+            body = self._read_json() or {}
+            from bioradar.blockchain import nft
+            res = nft.mint_nft(body.get("sample_id", "BR-GOA-001"), body.get("to_address"))
+            return self._json(201, res)
+
         if path == "/api/upload":
             return self._handle_upload(parsed.query)
         if path == "/api/upload/finalize":
             return self._handle_finalize()
         if path == "/api/verifications":
             return self._handle_verification()
+        if path == "/api/verifications/cv":
+            return self._handle_cv_verification()
         if path == "/api/runs":
             return self._handle_start_run()
 
         self._json(404, {"error": "not found"})
+
+    def _handle_cv_verification(self) -> None:
+        body = self._read_json()
+        if not body:
+            return
+
+        photo = body.get("photo", "field_photo.jpg")
+        target_species = body.get("scientific_name", "Clarias gariepinus")
+        site_id = body.get("site_id", "MANDOVI")
+        observer = body.get("observer", "Field Officer")
+
+        from bioradar.ai import cv_verifier
+        res = cv_verifier.predict_species_from_photo(photo, target_species)
+
+        # Record in append-only verification ledger if confirmed
+        if res["is_confirmed"]:
+            verification.record(
+                scientific_name=target_species,
+                site_id=site_id,
+                outcome=verification.CONFIRMED,
+                observer=observer,
+                notes=f"Auto-verified via Computer Vision (TFLite MobileNetV3) confidence {res['confidence']:.2f}",
+                photo=photo,
+            )
+
+        return self._json(200, res)
+
 
     def _handle_start_run(self) -> None:
         try:

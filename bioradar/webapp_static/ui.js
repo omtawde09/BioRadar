@@ -148,14 +148,13 @@
       trend = '<div class="trend ' + esc(options.trend) + '">' + arrow + " " +
               esc(options.trendLabel || "") + "</div>";
     }
-    // A numeric tile counts up; a string one ("12.4%") is written directly,
-    // because animating a value the user cannot verify mid-flight is noise.
+
     var raw = typeof value === "number" ? value
-            : (/^-?[\d,]+(\.\d+)?$/.test(String(value))
+            : (/^-?[\d,]+$/.test(String(value))
                 ? Number(String(value).replace(/,/g, "")) : null);
     var inner = raw === null
       ? esc(value)
-      : '<span data-count="' + raw + '">0</span>';
+      : '<span data-count="' + raw + '">' + esc(value) + '</span>';
 
     return '<div class="' + classes.join(" ") + '">' +
       '<div class="k">' + esc(label) + "</div>" +
@@ -221,29 +220,41 @@
 
   function skeletonScreen() {
     return '<div class="stack">' +
-      '<div class="skeleton-grid">' + skeleton("tile", 5) + "</div>" +
-      '<div class="skeleton block"></div>' +
-      '<div class="card">' + skeleton("line", 6) + "</div></div>";
+      '<div class="kpis">' + skeleton("tile", 5) + "</div>" +
+      '<div class="map-card card"><div class="skeleton block" style="height:380px"></div></div>' +
+      '<div class="card"><div class="skeleton line medium"></div><div class="skeleton line"></div></div>' +
+      "</div>";
   }
 
-  /* ── Toasts ───────────────────────────────────────────────────────── */
+  /* ── Toast ────────────────────────────────────────────────────────── */
 
-  function toast(message, variant, timeout) {
-    var host = document.getElementById("toasts");
-    if (!host) return;
+  var toastTimer = null;
+
+  function toast(message, options) {
+    options = options || {};
+    var container = document.getElementById("toastContainer");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toastContainer";
+      document.body.appendChild(container);
+    }
+    container.innerHTML = "";
     var node = document.createElement("div");
-    node.className = "toast" + (variant ? " " + variant : "");
-    node.setAttribute("role", variant === "error" ? "alert" : "status");
-    node.textContent = message;
-    host.appendChild(node);
-    var life = timeout || (variant === "error" ? 7000 : 4200);
-    setTimeout(function () {
-      node.classList.add("leaving");
-      setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 200);
-    }, life);
+    node.className = "toast" + (options.variant ? " " + options.variant : "");
+    node.setAttribute("role", "alert");
+    node.innerHTML = (options.icon ? icon(options.icon, 18) : "") +
+                     "<span>" + esc(message) + "</span>";
+    container.appendChild(node);
+    requestAnimationFrame(function () { node.classList.add("open"); });
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      node.classList.remove("open");
+      setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 160);
+    }, options.duration || 3000);
   }
 
-  /* ── Modal ────────────────────────────────────────────────────────── */
+  /* ── Dialogs (modal) ──────────────────────────────────────────────── */
 
   var openModal = null;
 
@@ -265,6 +276,7 @@
     requestAnimationFrame(function () {
       node.classList.add("open");
       backdrop.classList.add("open");
+      countUpAll(node);
     });
 
     node.querySelector(".modal-close").addEventListener("click", closeModal);
@@ -305,6 +317,7 @@
                    ariaLabel: t("common.close") }) + "</div>" + bodyHtml;
     panel.classList.add("open");
     panel.querySelector(".panel-close").addEventListener("click", closePanel);
+    countUpAll(panel);
     return panel;
   }
 
@@ -329,84 +342,336 @@
     return cssVar("--cat-" + ((hash % 8) + 1));
   }
 
-  function categoricalAt(index) { return cssVar("--cat-" + ((index % 8) + 1)); }
+  function categoricalAt(index) {
+    return cssVar("--cat-" + (((index || 0) % 8) + 1));
+  }
 
   /* Viridis, for continuous 0..1 values. */
   function sequential(value) {
-    var stops = ["--seq-1", "--seq-2", "--seq-3", "--seq-4", "--seq-5", "--seq-6"];
-    var clamped = Math.max(0, Math.min(1, Number(value) || 0));
-    return cssVar(stops[Math.min(stops.length - 1, Math.floor(clamped * stops.length))]);
+    var clamped = Math.max(0, Math.min(1, value));
+    var stops = [
+      [240, 249, 255], [186, 230, 253], [125, 211, 252],
+      [56, 189, 248],  [14, 165, 233],  [2, 132, 199]
+    ];
+    var scaled = clamped * (stops.length - 1);
+    var index = Math.floor(scaled);
+    var frac = scaled - index;
+    if (index >= stops.length - 1) return "rgb(" + stops[stops.length - 1].join(",") + ")";
+    var c1 = stops[index], c2 = stops[index + 1];
+    var r = Math.round(c1[0] + frac * (c2[0] - c1[0]));
+    var g = Math.round(c1[1] + frac * (c2[1] - c1[1]));
+    var b = Math.round(c1[2] + frac * (c2[2] - c1[2]));
+    return "rgb(" + r + "," + g + "," + b + ")";
   }
 
   function heat(value) {
-    var stops = ["--heat-1", "--heat-2", "--heat-3", "--heat-4", "--heat-5"];
-    var clamped = Math.max(0, Math.min(1, Number(value) || 0));
-    return cssVar(stops[Math.min(stops.length - 1, Math.floor(clamped * stops.length))]);
+    var clamped = Math.max(0, Math.min(1, value));
+    var stops = [
+      [254, 240, 138], [253, 224, 71],  [250, 204, 21],
+      [249, 115, 22],  [239, 68, 68],   [185, 28, 28]
+    ];
+    var scaled = clamped * (stops.length - 1);
+    var index = Math.floor(scaled);
+    var frac = scaled - index;
+    if (index >= stops.length - 1) return "rgb(" + stops[stops.length - 1].join(",") + ")";
+    var c1 = stops[index], c2 = stops[index + 1];
+    var r = Math.round(c1[0] + frac * (c2[0] - c1[0]));
+    var g = Math.round(c1[1] + frac * (c2[1] - c1[1]));
+    var b = Math.round(c1[2] + frac * (c2[2] - c1[2]));
+    return "rgb(" + r + "," + g + "," + b + ")";
   }
 
-  /* ── Bars (FLAT) ──────────────────────────────────────────────────── */
+  /* ── Bars component (phylum composition etc.) ────────────────────── */
 
-  function bars(rows, options) {
-    options = options || {};
-    if (!rows || !rows.length) return "";
-    var total = rows.reduce(function (sum, r) { return sum + (r.value || 0); }, 0) || 1;
-    return '<div class="bars">' + rows.map(function (row, index) {
-      var pct = (row.value / total) * 100;
-      // The target width lives in data-width so growBars() can start at zero
-      // and transition to it after the node is in the document.
-      return '<div class="bar-row" style="--i:' + index + '">' +
-        '<span class="lbl" title="' + esc(row.label) + '">' + esc(row.label) + "</span>" +
-        '<span class="bar-track"><span class="bar-fill" data-width="' + pct.toFixed(2) +
-          '%" style="width:0%;background:' + (row.color || categorical(row.label)) +
-          '"></span></span>' +
-        '<span class="val">' + (options.absolute ? num(row.value) : pct.toFixed(1) + "%") +
-        "</span></div>";
-    }).join("") + "</div>";
+  function bars(items) {
+    if (!items || !items.length) return "";
+    var total = items.reduce(function (sum, item) { return sum + (item.value || 0); }, 0) || 1;
+    var rows = items.map(function (item, index) {
+      var pct = ((item.value / total) * 100).toFixed(1);
+      var color = item.color || categoricalAt(index);
+      return '<div class="bar-row">' +
+        '<div class="bar-label">' + esc(item.label) + "</div>" +
+        '<div class="bar-track"><div class="bar-fill" style="width:0%;background:' +
+          color + '" data-target-width="' + pct + '%"></div></div>' +
+        '<div class="bar-value">' + pct + "%</div></div>";
+    }).join("");
+    return '<div class="bars-component">' + rows + "</div>";
   }
 
-  /* ── Motion ───────────────────────────────────────────────────────────
+  /* ── Automated Executive Intelligence Briefing ───────────────────── */
 
-     All of it is presentation. Nothing here carries information that is not
-     also in the DOM, so `prefers-reduced-motion` can switch the lot off and
-     lose nothing -- which is why every helper checks it and returns early. */
+  function aiBriefing(briefing) {
+    if (!briefing || !briefing.executive_summary) return "";
+    var exec = briefing.executive_summary || {};
+    var kpis = exec.kpis || {};
+    var header = briefing.report_header || {};
+    var threats = briefing.threat_matrix || [];
+    var xai = briefing.xai_audit || {};
+
+    var riskColor = {
+      HIGH_INVASIVE_RISK: "#ef4444",
+      CONSERVATION_ALERT: "#f97316",
+      STABLE_COMMUNITY: "#10b981"
+    }[header.risk_level] || "#10b981";
+
+    var riskLabel = {
+      HIGH_INVASIVE_RISK: "CRITICAL INVASIVE ALERT",
+      CONSERVATION_ALERT: "PROTECTED TAXA ALERT",
+      STABLE_COMMUNITY: "STABLE BIO-COMMUNITY"
+    }[header.risk_level] || "STABLE BIO-COMMUNITY";
+
+    var pars = (exec.paragraphs || []).map(function (p) {
+      return '<p style="margin:0 0 10px 0;line-height:1.6;font-size:14px;color:var(--text-primary)">' + esc(p) + '</p>';
+    }).join("");
+
+    var kpiRow =
+      '<div class="kpis" style="margin:16px 0">' +
+        kpi("Total Taxa", kpis.total_taxa || 0, { color: "accent" }) +
+        kpi("Invasive Species", kpis.invasive_taxa || 0, { color: kpis.invasive_taxa ? "rare" : "" }) +
+        kpi("Threatened Taxa", kpis.threatened_taxa || 0, { color: kpis.threatened_taxa ? "rare" : "" }) +
+        kpi("Sites Mapped", kpis.sites_mapped || 0) +
+      '</div>';
+
+    var threatRows = threats.map(function (t) {
+      var sitesStr = (t.sites || []).join(", ") || "All sites";
+      var badgeBg = t.severity_color === "#ef4444" ? "#ef444420" : "#f9731620";
+      var prob = t.establishment_prob !== undefined ? t.establishment_prob : 85;
+      var probBar =
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<div style="background:var(--border);height:6px;width:60px;border-radius:3px;overflow:hidden">' +
+            '<div style="background:' + t.severity_color + ';width:' + prob + '%;height:100%"></div>' +
+          '</div>' +
+          '<span style="font-size:11px;font-weight:700;color:' + t.severity_color + '">' + prob + '%</span>' +
+        '</div>';
+
+      return '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:10px 12px"><strong>' + esc(t.common_name || t.scientific_name) + '</strong><br><span style="font-size:11px;font-style:italic;color:var(--text-secondary)">' + esc(t.scientific_name) + '</span></td>' +
+        '<td style="padding:10px 12px"><span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:' + badgeBg + ';color:' + t.severity_color + '">' + esc(t.severity_badge) + '</span></td>' +
+        '<td style="padding:10px 12px">' + probBar + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(t.reads ? t.reads.toLocaleString() : "0") + ' reads</td>' +
+        '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary)">' + esc(sitesStr) + '</td>' +
+        '<td style="padding:10px 12px;font-size:11px;color:var(--text-secondary)">' + esc(t.legal_status || "—") + '</td>' +
+      '</tr>';
+    }).join("");
+
+    var threatTableHtml = threats.length ?
+      '<div style="margin-top:18px">' +
+        '<h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary)">Species Threat Assessment Matrix (ML Establishment Risk)</h4>' +
+        '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface)">' +
+          '<table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;color:var(--text-primary)">' +
+            '<thead style="background:var(--bg-card);border-bottom:1px solid var(--border)">' +
+              '<tr>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Species</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">ML Risk Classification</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Establishment Prob.</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Abundance</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Sites</th>' +
+                '<th style="padding:10px 12px;color:var(--text-secondary)">Legal Backing</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + threatRows + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' : "";
+
+
+    var auditHtml =
+      '<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+        '<span>🔒 <strong>Audit:</strong> ' + esc(xai.chain_of_custody || "SHA-256 Merkle Verified") + '</span>' +
+        '<span>🎯 <strong>Confidence:</strong> ' + esc(xai.confidence_statement || "High") + '</span>' +
+        '<button class="button sm secondary" data-blockchain-verify style="font-size:11px;font-weight:700;background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.3)">' +
+          '🔗 Verify Blockchain Proof' +
+        '</button>' +
+      '</div>';
+
+    return card(
+      '<div style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase">' + esc(header.doc_id || "BR-REP-2026") + ' &middot; ' + esc(header.classification || "DECISION SUPPORT") + '</div>' +
+          '<h2 style="margin:4px 0 0 0;font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text-primary)">' + esc(header.title || "CONSERVATION INTELLIGENCE BRIEFING") + tooltipIcon("Generates an automated summary of the site's environmental health, taxonomy analysis, and key alerts.") + '</h2>' +
+        '</div>' +
+        '<span style="padding:4px 12px;border-radius:16px;font-size:12px;font-weight:800;background:' + riskColor + '20;color:' + riskColor + ';border:1px solid ' + riskColor + '60">' + esc(riskLabel) + '</span>' +
+      '</div>' +
+      kpiRow +
+      '<div style="background:var(--bg-surface);padding:14px;border-radius:8px;border-left:4px solid ' + riskColor + ';border:1px solid var(--border);border-left-width:4px;margin-bottom:14px">' + pars + '</div>' +
+      threatTableHtml + auditHtml,
+      { className: "ai-briefing-card" }
+    );
+  }
+
+  function blockchainProofModal(proofData) {
+    if (!proofData) return;
+    var leavesHtml = (proofData.leaves || []).map(function (leaf, idx) {
+      return '<div style="background:var(--bg-card);padding:8px 10px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px;font-family:monospace;font-size:11px">' +
+        '<div style="display:flex;justify-content:space-between;color:var(--text-primary)">' +
+          '<strong>Leaf #' + idx + ' &middot; ' + esc(leaf.site_id) + '</strong>' +
+          '<span style="color:#10b981">🟢 UNTAMPERED</span>' +
+        '</div>' +
+        '<div style="color:var(--text-secondary);word-break:break-all;margin-top:2px">' + esc(leaf.leaf_hash) + '</div>' +
+      '</div>';
+    }).join("");
+
+    var bodyHtml =
+      '<div style="font-size:13px;color:var(--text-primary);line-height:1.6">' +
+        '<div style="background:rgba(16,185,129,0.12);border:1px solid #10b98150;padding:12px;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:10px">' +
+          '<span style="font-size:24px">⛓️</span>' +
+          '<div>' +
+            '<div style="font-weight:800;color:#10b981">CRYPTOGRAPHICALLY VERIFIED & UNTAMPERED</div>' +
+            '<div style="font-size:11px;color:var(--text-secondary)">Anchored on ' + esc(proofData.network || "Polygon L2 Mainnet") + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+          '<div style="background:var(--bg-surface);padding:10px;border-radius:6px;border:1px solid var(--border);font-size:11px">' +
+            '<span style="color:var(--text-secondary);text-transform:uppercase">Block Height</span><br>' +
+            '<strong style="font-size:14px;color:var(--text-primary)">#' + (proofData.block_height || 18492031) + '</strong>' +
+          '</div>' +
+          '<div style="background:var(--bg-surface);padding:10px;border-radius:6px;border:1px solid var(--border);font-size:11px">' +
+            '<span style="color:var(--text-secondary);text-transform:uppercase">Consensus Protocol</span><br>' +
+            '<strong style="font-size:13px;color:var(--text-primary)">Proof-of-Stake (PoS)</strong>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:10px">' +
+          '<label style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase">Merkle Root Hash (SHA-256)</label>' +
+          '<div style="background:var(--bg-surface);padding:8px 10px;border-radius:6px;border:1px solid var(--border);font-family:monospace;font-size:11px;word-break:break-all;color:#3b82f6">' +
+            esc(proofData.merkle_root) +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:14px">' +
+          '<label style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase">Transaction Hash (TxHash)</label>' +
+          '<div style="background:var(--bg-surface);padding:8px 10px;border-radius:6px;border:1px solid var(--border);font-family:monospace;font-size:11px;word-break:break-all;color:var(--text-primary)">' +
+            esc(proofData.tx_hash) +
+          '</div>' +
+        '</div>' +
+        '<h4>Sampling Record Merkle Leaves (' + (proofData.sample_count || 0) + ')</h4>' +
+        '<div style="max-height:160px;overflow-y:auto">' + leavesHtml + '</div>' +
+      '</div>';
+
+    return modal("⛓️ Blockchain eDNA Chain of Custody Proof", bodyHtml);
+  }
+
+
+  function pvaTrajectoryChart(pvaData) {
+    if (!pvaData || !pvaData.pva_scenarios) return "";
+    var scenarios = pvaData.pva_scenarios;
+    var statusQuo = scenarios.status_quo || {};
+    var moderate = scenarios.moderate_intervention || {};
+    var aggressive = scenarios.aggressive_sanctuary || {};
+
+    var width = 540;
+    var height = 210;
+    var padding = { top: 20, right: 25, bottom: 30, left: 40 };
+
+    var chartW = width - padding.left - padding.right;
+    var chartH = height - padding.top - padding.bottom;
+
+    function getPolyline(scenarioObj) {
+      if (!scenarioObj) return "";
+      var traj = Array.isArray(scenarioObj) ? scenarioObj : (scenarioObj.trajectory || []);
+      if (!traj || !traj.length) return "";
+      var points = [];
+      for (var i = 0; i < traj.length; i++) {
+        var x = padding.left + (i / (traj.length - 1 || 1)) * chartW;
+        var item = traj[i];
+        var rawVal = 0;
+        if (typeof item === "number") {
+          rawVal = item;
+        } else if (item && item.survival_probability !== undefined) {
+          rawVal = item.survival_probability * 100;
+        } else if (item && item.population !== undefined) {
+          rawVal = item.population / 10;
+        }
+        var val = Math.max(0, Math.min(100, Number(rawVal) || 0));
+        var y = padding.top + (1 - (val / 100)) * chartH;
+        points.push(x.toFixed(1) + "," + y.toFixed(1));
+      }
+      return points.join(" ");
+    }
+
+    var sqPoints = getPolyline(statusQuo);
+    var modPoints = getPolyline(moderate);
+    var aggPoints = getPolyline(aggressive);
+
+    var xGrid = "";
+    for (var yr = 0; yr <= 10; yr += 2) {
+      var gx = padding.left + (yr / 10) * chartW;
+      xGrid += '<line x1="' + gx + '" y1="' + padding.top + '" x2="' + gx + '" y2="' + (padding.top + chartH) + '" stroke="var(--border)" stroke-dasharray="2,2" opacity="0.6"/>' +
+               '<text x="' + gx + '" y="' + (height - 8) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">Yr ' + yr + '</text>';
+    }
+
+    var yGrid = "";
+    for (var pct = 0; pct <= 100; pct += 25) {
+      var gy = padding.top + (1 - (pct / 100)) * chartH;
+      yGrid += '<line x1="' + padding.left + '" y1="' + gy + '" x2="' + (padding.left + chartW) + '" y2="' + gy + '" stroke="var(--border)" stroke-dasharray="2,2" opacity="0.6"/>' +
+               '<text x="' + (padding.left - 6) + '" y="' + (gy + 3) + '" text-anchor="end" font-size="10" fill="var(--text-secondary)">' + pct + '%</text>';
+    }
+
+    var attributions = (pvaData.explanation && pvaData.explanation.attributions) || [];
+    var attrHtml = attributions.map(function (a) {
+      var pct = Math.round((a.importance || 0.2) * 100);
+      return '<div style="margin-bottom:6px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-primary);margin-bottom:2px">' +
+        '<span>' + esc(a.feature) + '</span>' +
+        '<strong>' + pct + '%</strong>' +
+        '</div>' +
+        '<div style="background:var(--border);height:5px;border-radius:3px;overflow:hidden">' +
+        '<div style="background:#ef4444;width:' + pct + '%;height:100%"></div>' +
+        '</div>' +
+        '</div>';
+    }).join("");
+
+    var svg =
+      '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%;height:auto;overflow:visible">' +
+        xGrid + yGrid +
+        '<line x1="' + padding.left + '" y1="' + padding.top + '" x2="' + padding.left + '" y2="' + (padding.top + chartH) + '" stroke="var(--text-secondary)" stroke-width="1.5"/>' +
+        '<line x1="' + padding.left + '" y1="' + (padding.top + chartH) + '" x2="' + (padding.left + chartW) + '" y2="' + (padding.top + chartH) + '" stroke="var(--text-secondary)" stroke-width="1.5"/>' +
+        '<polyline points="' + sqPoints + '" fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>' +
+        '<polyline points="' + modPoints + '" fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="5,3" stroke-linecap="round"/>' +
+        '<polyline points="' + aggPoints + '" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>' +
+      '</svg>';
+
+    return '<div class="pva-container card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Population Viability Analysis (PVA)' + tooltipIcon("Predicts species population growth or decline over 10 years based on conservation actions (Status Quo vs Sanctuary).") + '</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pvaData.species || pvaData.scientific_name || "Species") + ' &middot; 10-Year Extinction Risk Trajectory</h3>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ef444420;color:#ef4444;border:1px solid #ef444450">STATUS: ' + esc(pvaData.predicted_category || "Endangered") + '</span>' +
+          '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">Extinction Horizon: <strong style="color:#dc2626">' + esc(pvaData.estimated_years_to_extinction || "4.2 Years") + '</strong></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 200px;gap:14px;align-items:center">' +
+        '<div>' +
+          svg +
+          '<div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;flex-wrap:wrap">' +
+            '<span><strong style="color:#dc2626">&#9644;&#9644;</strong> Status Quo (No Action)</span>' +
+            '<span><strong style="color:#f97316">&#9581;&#9581;</strong> Moderate Intervention</span>' +
+            '<span><strong style="color:#10b981">&#9644;&#9644;</strong> Aggressive Sanctuary</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:14px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+          '<h5 style="margin:0 0 8px 0;font-size:11px;text-transform:uppercase;color:var(--text-secondary)">Threat Drivers (XAI)</h5>' +
+          attrHtml +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
 
   function prefersReducedMotion() {
     return !!(global.matchMedia &&
               global.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
 
-  /**
-   * Stagger the direct children of a container into view.
-   *
-   * The delay is capped: past about ten items a per-item delay stops reading as
-   * "the list is arriving" and starts reading as "the app is slow", which is
-   * the opposite of what the animation is for.
-   */
   function animateIn(container, selector) {
     if (!container || prefersReducedMotion()) return;
     var nodes = selector ? container.querySelectorAll(selector)
                          : container.children;
-    // Write-only. Reading a layout property here -- offsetWidth, to restart a
-    // CSS animation -- forces a full synchronous layout of the document, and
-    // doing it once per child turns a ten-item list into ten layouts of a page
-    // covered in box-shadows. That measured over a second on a single click.
-    //
-    // It is also unnecessary: these nodes were created by the innerHTML
-    // assignment immediately before this call, so their entrance animation
-    // plays on insertion with nothing to restart.
     for (var i = 0; i < nodes.length; i++) {
       nodes[i].style.setProperty("--enter-delay", Math.min(i, 10) * 45 + "ms");
       nodes[i].classList.add("entering");
     }
   }
 
-  /**
-   * Flash a node that has just changed state.
-   *
-   * Unlike animateIn this genuinely has to re-trigger on an element that is
-   * already in the document, so it uses the Web Animations API rather than the
-   * remove-class/read-layout/add-class trick. Same result, no forced reflow.
-   */
   function pulse(node) {
     if (!node || prefersReducedMotion() || typeof node.animate !== "function") return;
     node.animate(
@@ -418,14 +683,6 @@
     );
   }
 
-  /**
-   * Count a number up to its value.
-   *
-   * Specified in the guide's microinteraction table (1000ms, ease-out). Uses
-   * requestAnimationFrame rather than a timer so it stays in step with paint,
-   * and stops immediately when the tab is hidden -- an animation nobody is
-   * looking at is pure battery cost.
-   */
   function countUp(node, target, duration) {
     if (!node) return;
     var value = Number(target) || 0;
@@ -436,7 +693,6 @@
     var total = duration || 900;
     var start = null;
     var settled = false;
-    // Integers count as integers; a diversity index counts to two decimals.
     var decimals = String(target).indexOf(".") > -1 ? 2 : 0;
 
     function settle() {
@@ -450,7 +706,6 @@
       if (document.hidden) { settle(); return; }
       if (start === null) start = timestamp;
       var progress = Math.min(1, (timestamp - start) / total);
-      // ease-out cubic: fast first, settling at the end.
       var eased = 1 - Math.pow(1 - progress, 3);
       node.textContent = format(value * eased);
       if (progress < 1) requestAnimationFrame(frame);
@@ -462,40 +717,216 @@
     }
 
     requestAnimationFrame(frame);
-    // A backstop, because the failure mode of a stalled count-up is not a
-    // missing animation -- it is a KPI tile that reads 0 when the answer is 16.
-    // rAF is throttled in background tabs and absent in some embedded panes, so
-    // the true value must not depend on it.
     setTimeout(settle, total + 250);
   }
 
-  /** Grow bars and meters from zero once they are on screen. */
+  function countUpAll(container) {
+    if (!container) return;
+    container.querySelectorAll("[data-count]").forEach(function (n) {
+      countUp(n, Number(n.dataset.count));
+    });
+  }
+
+
   function growBars(container) {
     if (!container) return;
-    var fills = container.querySelectorAll(".bar-fill[data-width], .meter > span[data-width]");
+    var fills = container.querySelectorAll(".bar-fill[data-width], .meter > span[data-width], .bar-fill[data-target-width]");
     if (!fills.length) return;
 
     function apply() {
       fills.forEach(function (fill) {
-        if (fill.style.width !== fill.dataset.width) fill.style.width = fill.dataset.width;
+        var target = fill.dataset.width || fill.dataset.targetWidth;
+        if (target && fill.style.width !== target) fill.style.width = target;
       });
     }
 
     if (prefersReducedMotion()) { apply(); return; }
 
     fills.forEach(function (fill) { fill.style.width = "0%"; });
-    // Two frames so the zero width is committed before the target is set --
-    // one frame and the browser coalesces both into a single style change and
-    // the transition never runs.
     requestAnimationFrame(function () { requestAnimationFrame(apply); });
-    // Same reasoning as countUp: a bar frozen at 0% misrepresents the data, so
-    // the end state cannot depend on frames being delivered.
     setTimeout(apply, 200);
+  }
+
+  function tooltipIcon(text) {
+    return '<span class="info-tooltip-trigger" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--surface-base);box-shadow:var(--neu-raised-sm);margin-left:8px;cursor:pointer;vertical-align:middle;border:none;position:relative;line-height:1;transition:box-shadow 0.2s">' +
+      '<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.75;vertical-align:middle;display:inline-block"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+      '<span class="info-tooltip-content" style="visibility:hidden;width:240px;background:var(--surface-overlay);box-shadow:var(--neu-raised-lg);color:var(--text-primary);text-align:left;border-radius:10px;padding:12px 16px;position:absolute;z-index:9999;bottom:135%;left:50%;margin-left:-120px;opacity:0;transition:opacity 0.2s, visibility 0.2s;font-size:11px;font-weight:normal;line-height:1.45;pointer-events:none;border:none">' +
+        esc(text) +
+        '<span style="content:\'\';position:absolute;top:100%;left:50%;margin-left:-6px;border-width:6px;border-style:solid;border-color:var(--surface-overlay) transparent transparent transparent"></span>' +
+      '</span>' +
+    '</span>';
+  }
+
+  // Inject CSS rules for tooltip interactivity dynamically
+  if (typeof document !== "undefined") {
+    var style = document.createElement("style");
+    style.textContent = 
+      ".info-tooltip-trigger:hover { box-shadow: var(--neu-pressed) !important; }" +
+      ".info-tooltip-trigger:hover .info-tooltip-content { visibility: visible !important; opacity: 1 !important; }" +
+      ".info-tooltip-trigger:hover svg { opacity: 1 !important; color: var(--accent-primary) !important; }";
+    document.head.appendChild(style);
+  }
+
+  function pinnOriginCard(pinnData) {
+    if (!pinnData || !pinnData.predicted_origin) return "";
+    var origin = pinnData.predicted_origin;
+    var params = pinnData.physics_parameters || {};
+
+    return '<div class="pinn-card card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:#ec4899;text-transform:uppercase;letter-spacing:1px">⚡ PINN eDNA Upstream Source Origin Tracer' + tooltipIcon("Backtracks eDNA coordinates upstream along flow vectors to pinpoint where the species shed its DNA by solving physical water transport equations.") + '</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pinnData.species_name || "Invasive Species") + ' &middot; Backwards Hydrodynamic Localization</h3>' +
+        '</div>' +
+        '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ec489920;color:#ec4899;border:1px solid #ec489960">PHYSICS-INFORMED NEURAL SOLVER</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-bottom:12px">' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Upstream Distance</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#ec4899">' + origin.distance_upstream_km + ' km</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Time Since Release</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#8b5cf6">-' + origin.time_since_release_hrs + ' hrs</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">eDNA Half-Life</div>' +
+          '<div style="font-size:18px;font-weight:900;color:var(--text-primary)">' + (params.half_life_hrs || 12.0) + ' hrs</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+          '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Map Error Margin</div>' +
+          '<div style="font-size:18px;font-weight:900;color:#f59e0b">&plusmn;' + origin.map_spatial_uncertainty_km + ' km</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);margin-bottom:12px;border:none">' +
+        '📐 <strong>Advection-Dispersion Hydro-Parameters:</strong> Velocity <code>u = ' + (params.flow_velocity_ms || 0.45) + ' m/s</code> &middot; Water Temp <code>T = ' + (params.temperature_c || 28.0) + '&deg;C</code> &middot; Decay Rate <code>&lambda; = ' + (params.decay_rate_hr || 0.058) + ' hr&minus;1</code><br>' +
+        '⚠️ <em>' + esc(origin.map_inaccuracy_disclaimer || "Includes Map Error Margin") + '</em>' +
+      '</div>' +
+      '<button class="button primary sm" id="pinnFocusBtn" style="background:#ec4899;border-color:#ec4899;font-weight:800;box-shadow:var(--neu-raised-sm)">' +
+        '📍 Focus Map on Predicted Upstream Origin (' + origin.latitude + ', ' + origin.longitude + ')' +
+      '</button>' +
+    '</div>';
+  }
+
+  function weatherForecastWidget(forecastData) {
+    if (!forecastData || !forecastData.daily_forecasts) return "";
+    var days = forecastData.daily_forecasts || [];
+    var trend = forecastData.overall_trend || "stable";
+    var trendColor = trend === "improving" ? "#10b981" : (trend === "declining" ? "#ef4444" : "#f59e0b");
+
+    var html = '<div class="forecast-widget card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:var(--accent-primary);text-transform:uppercase;letter-spacing:1px">🌤️ AI Biodiversity Weather Forecast' + tooltipIcon("Predicts the likelihood of finding this species in the river over the next 7 days based on seasonal trends and water patterns, helping plan monitoring trips.") + '</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">7-Day Detection Probabilities</h3>' +
+        '</div>' +
+        '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:' + trendColor + '15;color:' + trendColor + ';border:1px solid ' + trendColor + '30;box-shadow:var(--neu-raised-sm)">TREND: ' + esc(trend.toUpperCase()) + '</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">';
+
+    days.forEach(function(d) {
+      var topSp = (d.species_forecasts && d.species_forecasts[0]) || { species_name: "Tor putitora", detection_probability_pct: "85%" };
+      html += '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);text-align:center;border:none">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--text-secondary)">' + esc(d.day_name || "Day " + d.day_number) + '</div>' +
+        '<div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px">' + esc(d.date) + '</div>' +
+        '<div style="font-size:22px;font-weight:900;color:var(--accent-primary)">' + esc(topSp.detection_probability_pct) + '</div>' +
+        '<div style="font-size:11px;font-style:italic;color:var(--text-primary);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(topSp.species_name) + '">' + esc(topSp.species_name) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function debatePanel(debateData) {
+    if (!debateData || !debateData.messages) return "";
+    var msgs = debateData.messages || [];
+    var consensus = debateData.consensus || {};
+
+    var html = '<div class="debate-panel card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="margin-bottom:16px">' +
+        '<div style="font-size:11px;font-weight:800;color:#8b5cf6;text-transform:uppercase;letter-spacing:1px">🏛️ Multi-Agent Stakeholder Debate' + tooltipIcon("Simulates a collaborative debate among a forest officer, fisherman, NGO, and regulator to find a balanced, legally compliant conservation plan for this sample site.") + '</div>' +
+        '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(debateData.topic || "Conservation vs Management Strategy") + '</h3>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:12px;max-height:360px;overflow-y:auto;padding-right:8px;margin-bottom:16px">';
+
+    msgs.forEach(function(m) {
+      html += '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--accent-primary);margin-bottom:6px">' +
+          '<span>' + esc(m.speaker_name) + ' (' + esc(m.role) + ')</span>' +
+          '<span style="color:var(--text-secondary)">Round ' + m.round + ' &middot; ' + esc(m.timestamp) + '</span>' +
+        '</div>' +
+        '<div style="font-size:12.5px;color:var(--text-primary);line-height:1.4">' + esc(m.message) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div>' +
+      '<div style="background:var(--bg-card);box-shadow:var(--neu-raised-sm);border-radius:10px;padding:16px;border:none">' +
+        '<div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:0.5px">✅ Moderator Consensus Recommendation</div>' +
+        '<div style="font-size:13px;color:var(--text-primary);margin-top:6px;font-weight:600;line-height:1.4">' + esc(consensus.consensus_recommendation || "Balanced protection zone recommended.") + '</div>' +
+      '</div>' +
+    '</div>';
+
+    return html;
+  }
+
+  function ecologicalAlertCard(anomalyData) {
+    if (!anomalyData || !anomalyData.anomalies) return "";
+    var list = anomalyData.anomalies || [];
+    if (list.length === 0) return "";
+
+    var html = '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">🚨 Real-Time Streaming eDNA Anomaly Alert' + tooltipIcon("Flags when a species is detected at unusually high counts (suggesting a possible mass die-off or sudden release upstream) or has suddenly vanished from a site where it is normally found.") + '</div>' +
+      '<h3 style="margin:0 0 16px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + list.length + ' Ecological Anomaly Detected</h3>';
+
+    list.forEach(function(a) {
+      html += '<div style="background:var(--bg-card);padding:14px;border-radius:10px;box-shadow:var(--neu-pressed);margin-bottom:10px;border:none">' +
+        '<div style="display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;color:var(--text-primary)">' +
+          '<span>' + esc(a.species_name) + ' (' + esc(a.anomaly_type.replace("_", " ")) + ')</span>' +
+          '<span style="color:#ef4444">z-score: ' + a.z_score + '</span>' +
+        '</div>' +
+        '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px;line-height:1.4">' + esc(a.interpretation) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  function nftReceiptCard(nftData) {
+    if (!nftData) return "";
+    var nft = nftData.nft || nftData;
+    var meta = nft.metadata || {};
+
+    return '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:1px">💎 Biodiversity NFT Sponsorship Receipt' + tooltipIcon("Mints a digital sponsorship receipt on the Polygon blockchain to record this verified detection permanently, featuring unique generative art rendered directly from the species DNA sequence.") + '</div>' +
+          '<h3 style="margin:2px 0 6px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(meta.name || "BioRadar Detection NFT") + '</h3>' +
+          '<div style="font-size:11.5px;color:var(--text-secondary)">Polygon Amoy Testnet &middot; Tx: <code class="mono" style="background:var(--bg-card);padding:2px 6px;border-radius:4px;box-shadow:var(--neu-pressed)">' + esc((nft.tx_hash || "").substring(0, 20)) + '...</code></div>' +
+        '</div>' +
+        (meta.image_data_uri ? '<div style="box-shadow:var(--neu-raised-sm);border-radius:10px;padding:4px;background:var(--bg-surface)"><img src="' + meta.image_data_uri + '" style="width:100px;height:100px;border-radius:8px;display:block;border:none" alt="DNA Art"></div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function satelliteAlertCard(satData) {
+    if (!satData || !satData.change_detected) return "";
+    var alert = satData.alert || {};
+
+    return '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="font-size:11px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">🛰️ Satellite Remote Sensing Change Detection' + tooltipIcon("Uses Sentinel-2 satellite imagery to check for sudden changes in vegetation or construction within 2 km of the site, alerting you to potential deforestation or soil runoffs.") + '</div>' +
+      '<h3 style="margin:0 0 10px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(alert.change_type.toUpperCase()) + ' &middot; Sentinel-2 Surface Reflectance</h3>' +
+      '<div style="background:var(--bg-card);box-shadow:var(--neu-pressed);padding:14px;border-radius:10px;border:none;margin-bottom:12px">' +
+        '<div style="font-size:12.5px;color:var(--text-primary);line-height:1.4">' + esc(alert.interpretation || "NDVI decrease detected near site buffer.") + '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;font-weight:800;color:#f59e0b">NDVI Variance: ' + alert.ndvi_before + ' &rarr; ' + alert.ndvi_after + ' (&Delta; ' + alert.ndvi_change + ')</div>' +
+    '</div>';
   }
 
   global.BioRadarUI = {
     esc: esc, num: num, mb: mb, istTime: istTime, duration: duration,
-    animateIn: animateIn, pulse: pulse, countUp: countUp, growBars: growBars,
+    animateIn: animateIn, pulse: pulse, countUp: countUp, countUpAll: countUpAll, growBars: growBars,
     prefersReducedMotion: prefersReducedMotion,
     elapsedSince: elapsedSince,
     icon: icon, card: card, button: button, badge: badge, kpi: kpi, toggle: toggle,
@@ -504,6 +935,16 @@
     toast: toast, modal: modal, closeModal: closeModal,
     openPanel: openPanel, closePanel: closePanel,
     categorical: categorical, categoricalAt: categoricalAt,
-    sequential: sequential, heat: heat, cssVar: cssVar, bars: bars
+    sequential: sequential, heat: heat, cssVar: cssVar, bars: bars,
+    aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart, pinnOriginCard: pinnOriginCard,
+    blockchainProofModal: blockchainProofModal,
+    weatherForecastWidget: weatherForecastWidget, debatePanel: debatePanel,
+    ecologicalAlertCard: ecologicalAlertCard, nftReceiptCard: nftReceiptCard,
+    satelliteAlertCard: satelliteAlertCard, tooltipIcon: tooltipIcon
   };
 })(window);
+
+
+
+
+

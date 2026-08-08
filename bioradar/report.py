@@ -155,7 +155,7 @@ def analyse(
             }
         )
 
-    return {
+    out = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "detections": len(detections),
         "samples": per_sample,
@@ -166,6 +166,13 @@ def analyse(
         "phyla": phyla.most_common(),
         "rank_counts": rank_counts.most_common(),
     }
+    try:
+        from bioradar.ai import nlg_insights
+        out["ai_briefing"] = nlg_insights.generate_executive_briefing(out)
+    except Exception:
+        pass
+    return out
+
 
 
 def render_markdown(result: dict[str, Any], title: str, notes: dict[str, str]) -> str:
