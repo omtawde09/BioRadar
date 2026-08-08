@@ -488,7 +488,7 @@
       '<div style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">' +
         '<div>' +
           '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase">' + esc(header.doc_id || "BR-REP-2026") + ' &middot; ' + esc(header.classification || "DECISION SUPPORT") + '</div>' +
-          '<h2 style="margin:4px 0 0 0;font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text-primary)">' + esc(header.title || "CONSERVATION INTELLIGENCE BRIEFING") + '</h2>' +
+          '<h2 style="margin:4px 0 0 0;font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--text-primary)">' + esc(header.title || "CONSERVATION INTELLIGENCE BRIEFING") + tooltipIcon("Generates an automated summary of the site's environmental health, taxonomy analysis, and key alerts.") + '</h2>' +
         '</div>' +
         '<span style="padding:4px 12px;border-radius:16px;font-size:12px;font-weight:800;background:' + riskColor + '20;color:' + riskColor + ';border:1px solid ' + riskColor + '60">' + esc(riskLabel) + '</span>' +
       '</div>' +
@@ -629,14 +629,14 @@
         '<polyline points="' + aggPoints + '" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>' +
       '</svg>';
 
-    return '<div class="pva-container" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px">' +
+    return '<div class="pva-container card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
         '<div>' +
-          '<div style="font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Population Viability Analysis (PVA)</div>' +
+          '<div style="font-size:11px;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Population Viability Analysis (PVA)' + tooltipIcon("Predicts species population growth or decline over 10 years based on conservation actions (Status Quo vs Sanctuary).") + '</div>' +
           '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pvaData.species || pvaData.scientific_name || "Species") + ' &middot; 10-Year Extinction Risk Trajectory</h3>' +
         '</div>' +
         '<div style="text-align:right">' +
-          '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ef444420;color:#ef4444;border:1px solid #ef444450">' + esc(pvaData.predicted_category || "Endangered") + '</span>' +
+          '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ef444420;color:#ef4444;border:1px solid #ef444450">STATUS: ' + esc(pvaData.predicted_category || "Endangered") + '</span>' +
           '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">Extinction Horizon: <strong style="color:#dc2626">' + esc(pvaData.estimated_years_to_extinction || "4.2 Years") + '</strong></div>' +
         '</div>' +
       '</div>' +
@@ -649,7 +649,7 @@
             '<span><strong style="color:#10b981">&#9644;&#9644;</strong> Aggressive Sanctuary</span>' +
           '</div>' +
         '</div>' +
-        '<div style="background:var(--bg-card);padding:12px;border-radius:8px;border:1px solid var(--border)">' +
+        '<div style="background:var(--bg-card);padding:14px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
           '<h5 style="margin:0 0 8px 0;font-size:11px;text-transform:uppercase;color:var(--text-secondary)">Threat Drivers (XAI)</h5>' +
           attrHtml +
         '</div>' +
@@ -747,44 +747,180 @@
     setTimeout(apply, 200);
   }
 
+  function tooltipIcon(text) {
+    return '<span class="info-tooltip-trigger" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--surface-base);box-shadow:var(--neu-raised-sm);margin-left:8px;cursor:pointer;vertical-align:middle;border:none;position:relative;line-height:1;transition:box-shadow 0.2s">' +
+      '<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.75;vertical-align:middle;display:inline-block"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+      '<span class="info-tooltip-content" style="visibility:hidden;width:240px;background:var(--surface-overlay);box-shadow:var(--neu-raised-lg);color:var(--text-primary);text-align:left;border-radius:10px;padding:12px 16px;position:absolute;z-index:9999;bottom:135%;left:50%;margin-left:-120px;opacity:0;transition:opacity 0.2s, visibility 0.2s;font-size:11px;font-weight:normal;line-height:1.45;pointer-events:none;border:none">' +
+        esc(text) +
+        '<span style="content:\'\';position:absolute;top:100%;left:50%;margin-left:-6px;border-width:6px;border-style:solid;border-color:var(--surface-overlay) transparent transparent transparent"></span>' +
+      '</span>' +
+    '</span>';
+  }
+
+  // Inject CSS rules for tooltip interactivity dynamically
+  if (typeof document !== "undefined") {
+    var style = document.createElement("style");
+    style.textContent = 
+      ".info-tooltip-trigger:hover { box-shadow: var(--neu-pressed) !important; }" +
+      ".info-tooltip-trigger:hover .info-tooltip-content { visibility: visible !important; opacity: 1 !important; }" +
+      ".info-tooltip-trigger:hover svg { opacity: 1 !important; color: var(--accent-primary) !important; }";
+    document.head.appendChild(style);
+  }
+
   function pinnOriginCard(pinnData) {
     if (!pinnData || !pinnData.predicted_origin) return "";
     var origin = pinnData.predicted_origin;
     var params = pinnData.physics_parameters || {};
 
-    return '<div class="pinn-card" style="background:var(--bg-surface);border:1px solid #ec489950;border-left:4px solid #ec4899;border-radius:10px;padding:16px;margin-top:16px">' +
+    return '<div class="pinn-card card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
         '<div>' +
-          '<div style="font-size:11px;font-weight:800;color:#ec4899;text-transform:uppercase;letter-spacing:1px">⚡ PINN eDNA Upstream Source Origin Tracer</div>' +
+          '<div style="font-size:11px;font-weight:800;color:#ec4899;text-transform:uppercase;letter-spacing:1px">⚡ PINN eDNA Upstream Source Origin Tracer' + tooltipIcon("Backtracks eDNA coordinates upstream along flow vectors to pinpoint where the species shed its DNA by solving physical water transport equations.") + '</div>' +
           '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(pinnData.species_name || "Invasive Species") + ' &middot; Backwards Hydrodynamic Localization</h3>' +
         '</div>' +
         '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:#ec489920;color:#ec4899;border:1px solid #ec489960">PHYSICS-INFORMED NEURAL SOLVER</span>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-bottom:12px">' +
-        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-bottom:12px">' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
           '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Upstream Distance</div>' +
           '<div style="font-size:18px;font-weight:900;color:#ec4899">' + origin.distance_upstream_km + ' km</div>' +
         '</div>' +
-        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
           '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Time Since Release</div>' +
           '<div style="font-size:18px;font-weight:900;color:#8b5cf6">-' + origin.time_since_release_hrs + ' hrs</div>' +
         '</div>' +
-        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
           '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">eDNA Half-Life</div>' +
           '<div style="font-size:18px;font-weight:900;color:var(--text-primary)">' + (params.half_life_hrs || 12.0) + ' hrs</div>' +
         '</div>' +
-        '<div style="background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+        '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
           '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">Map Error Margin</div>' +
           '<div style="font-size:18px;font-weight:900;color:#f59e0b">&plusmn;' + origin.map_spatial_uncertainty_km + ' km</div>' +
         '</div>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;background:var(--bg-card);padding:10px;border-radius:6px;border:1px solid var(--border);margin-bottom:10px">' +
+      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);margin-bottom:12px;border:none">' +
         '📐 <strong>Advection-Dispersion Hydro-Parameters:</strong> Velocity <code>u = ' + (params.flow_velocity_ms || 0.45) + ' m/s</code> &middot; Water Temp <code>T = ' + (params.temperature_c || 28.0) + '&deg;C</code> &middot; Decay Rate <code>&lambda; = ' + (params.decay_rate_hr || 0.058) + ' hr&minus;1</code><br>' +
         '⚠️ <em>' + esc(origin.map_inaccuracy_disclaimer || "Includes Map Error Margin") + '</em>' +
       '</div>' +
-      '<button class="button primary sm" id="pinnFocusBtn" style="background:#ec4899;border-color:#ec4899;font-weight:800">' +
+      '<button class="button primary sm" id="pinnFocusBtn" style="background:#ec4899;border-color:#ec4899;font-weight:800;box-shadow:var(--neu-raised-sm)">' +
         '📍 Focus Map on Predicted Upstream Origin (' + origin.latitude + ', ' + origin.longitude + ')' +
       '</button>' +
+    '</div>';
+  }
+
+  function weatherForecastWidget(forecastData) {
+    if (!forecastData || !forecastData.daily_forecasts) return "";
+    var days = forecastData.daily_forecasts || [];
+    var trend = forecastData.overall_trend || "stable";
+    var trendColor = trend === "improving" ? "#10b981" : (trend === "declining" ? "#ef4444" : "#f59e0b");
+
+    var html = '<div class="forecast-widget card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:var(--accent-primary);text-transform:uppercase;letter-spacing:1px">🌤️ AI Biodiversity Weather Forecast' + tooltipIcon("Predicts the likelihood of finding this species in the river over the next 7 days based on seasonal trends and water patterns, helping plan monitoring trips.") + '</div>' +
+          '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">7-Day Detection Probabilities</h3>' +
+        '</div>' +
+        '<span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:800;background:' + trendColor + '15;color:' + trendColor + ';border:1px solid ' + trendColor + '30;box-shadow:var(--neu-raised-sm)">TREND: ' + esc(trend.toUpperCase()) + '</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">';
+
+    days.forEach(function(d) {
+      var topSp = (d.species_forecasts && d.species_forecasts[0]) || { species_name: "Tor putitora", detection_probability_pct: "85%" };
+      html += '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);text-align:center;border:none">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--text-secondary)">' + esc(d.day_name || "Day " + d.day_number) + '</div>' +
+        '<div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px">' + esc(d.date) + '</div>' +
+        '<div style="font-size:22px;font-weight:900;color:var(--accent-primary)">' + esc(topSp.detection_probability_pct) + '</div>' +
+        '<div style="font-size:11px;font-style:italic;color:var(--text-primary);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(topSp.species_name) + '">' + esc(topSp.species_name) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function debatePanel(debateData) {
+    if (!debateData || !debateData.messages) return "";
+    var msgs = debateData.messages || [];
+    var consensus = debateData.consensus || {};
+
+    var html = '<div class="debate-panel card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="margin-bottom:16px">' +
+        '<div style="font-size:11px;font-weight:800;color:#8b5cf6;text-transform:uppercase;letter-spacing:1px">🏛️ Multi-Agent Stakeholder Debate' + tooltipIcon("Simulates a collaborative debate among a forest officer, fisherman, NGO, and regulator to find a balanced, legally compliant conservation plan for this sample site.") + '</div>' +
+        '<h3 style="margin:2px 0 0 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(debateData.topic || "Conservation vs Management Strategy") + '</h3>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:12px;max-height:360px;overflow-y:auto;padding-right:8px;margin-bottom:16px">';
+
+    msgs.forEach(function(m) {
+      html += '<div style="background:var(--bg-card);padding:12px;border-radius:10px;box-shadow:var(--neu-pressed);border:none">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--accent-primary);margin-bottom:6px">' +
+          '<span>' + esc(m.speaker_name) + ' (' + esc(m.role) + ')</span>' +
+          '<span style="color:var(--text-secondary)">Round ' + m.round + ' &middot; ' + esc(m.timestamp) + '</span>' +
+        '</div>' +
+        '<div style="font-size:12.5px;color:var(--text-primary);line-height:1.4">' + esc(m.message) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div>' +
+      '<div style="background:var(--bg-card);box-shadow:var(--neu-raised-sm);border-radius:10px;padding:16px;border:none">' +
+        '<div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:0.5px">✅ Moderator Consensus Recommendation</div>' +
+        '<div style="font-size:13px;color:var(--text-primary);margin-top:6px;font-weight:600;line-height:1.4">' + esc(consensus.consensus_recommendation || "Balanced protection zone recommended.") + '</div>' +
+      '</div>' +
+    '</div>';
+
+    return html;
+  }
+
+  function ecologicalAlertCard(anomalyData) {
+    if (!anomalyData || !anomalyData.anomalies) return "";
+    var list = anomalyData.anomalies || [];
+    if (list.length === 0) return "";
+
+    var html = '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="font-size:11px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">🚨 Real-Time Streaming eDNA Anomaly Alert' + tooltipIcon("Flags when a species is detected at unusually high counts (suggesting a possible mass die-off or sudden release upstream) or has suddenly vanished from a site where it is normally found.") + '</div>' +
+      '<h3 style="margin:0 0 16px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + list.length + ' Ecological Anomaly Detected</h3>';
+
+    list.forEach(function(a) {
+      html += '<div style="background:var(--bg-card);padding:14px;border-radius:10px;box-shadow:var(--neu-pressed);margin-bottom:10px;border:none">' +
+        '<div style="display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;color:var(--text-primary)">' +
+          '<span>' + esc(a.species_name) + ' (' + esc(a.anomaly_type.replace("_", " ")) + ')</span>' +
+          '<span style="color:#ef4444">z-score: ' + a.z_score + '</span>' +
+        '</div>' +
+        '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px;line-height:1.4">' + esc(a.interpretation) + '</div>' +
+      '</div>';
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  function nftReceiptCard(nftData) {
+    if (!nftData) return "";
+    var nft = nftData.nft || nftData;
+    var meta = nft.metadata || {};
+
+    return '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:1px">💎 Biodiversity NFT Sponsorship Receipt' + tooltipIcon("Mints a digital sponsorship receipt on the Polygon blockchain to record this verified detection permanently, featuring unique generative art rendered directly from the species DNA sequence.") + '</div>' +
+          '<h3 style="margin:2px 0 6px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(meta.name || "BioRadar Detection NFT") + '</h3>' +
+          '<div style="font-size:11.5px;color:var(--text-secondary)">Polygon Amoy Testnet &middot; Tx: <code class="mono" style="background:var(--bg-card);padding:2px 6px;border-radius:4px;box-shadow:var(--neu-pressed)">' + esc((nft.tx_hash || "").substring(0, 20)) + '...</code></div>' +
+        '</div>' +
+        (meta.image_data_uri ? '<div style="box-shadow:var(--neu-raised-sm);border-radius:10px;padding:4px;background:var(--bg-surface)"><img src="' + meta.image_data_uri + '" style="width:100px;height:100px;border-radius:8px;display:block;border:none" alt="DNA Art"></div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function satelliteAlertCard(satData) {
+    if (!satData || !satData.change_detected) return "";
+    var alert = satData.alert || {};
+
+    return '<div class="card" style="box-shadow:var(--neu-raised);margin-top:24px;border-radius:12px;padding:20px;border:none">' +
+      '<div style="font-size:11px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">🛰️ Satellite Remote Sensing Change Detection' + tooltipIcon("Uses Sentinel-2 satellite imagery to check for sudden changes in vegetation or construction within 2 km of the site, alerting you to potential deforestation or soil runoffs.") + '</div>' +
+      '<h3 style="margin:0 0 10px 0;font-size:16px;font-weight:800;color:var(--text-primary)">' + esc(alert.change_type.toUpperCase()) + ' &middot; Sentinel-2 Surface Reflectance</h3>' +
+      '<div style="background:var(--bg-card);box-shadow:var(--neu-pressed);padding:14px;border-radius:10px;border:none;margin-bottom:12px">' +
+        '<div style="font-size:12.5px;color:var(--text-primary);line-height:1.4">' + esc(alert.interpretation || "NDVI decrease detected near site buffer.") + '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;font-weight:800;color:#f59e0b">NDVI Variance: ' + alert.ndvi_before + ' &rarr; ' + alert.ndvi_after + ' (&Delta; ' + alert.ndvi_change + ')</div>' +
     '</div>';
   }
 
@@ -801,7 +937,10 @@
     categorical: categorical, categoricalAt: categoricalAt,
     sequential: sequential, heat: heat, cssVar: cssVar, bars: bars,
     aiBriefing: aiBriefing, pvaTrajectoryChart: pvaTrajectoryChart, pinnOriginCard: pinnOriginCard,
-    blockchainProofModal: blockchainProofModal
+    blockchainProofModal: blockchainProofModal,
+    weatherForecastWidget: weatherForecastWidget, debatePanel: debatePanel,
+    ecologicalAlertCard: ecologicalAlertCard, nftReceiptCard: nftReceiptCard,
+    satelliteAlertCard: satelliteAlertCard, tooltipIcon: tooltipIcon
   };
 })(window);
 

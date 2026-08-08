@@ -1148,11 +1148,11 @@
               '<div class="map" id="map-' + esc(run.run_id) + '"></div>' +
               '<div id="timeline-' + esc(run.run_id) + '" style="margin-top:12px"></div>',
               { className: "map-card" }) +
-      UI.card("<h2>" + esc(t("results.composition")) + "</h2><div style='margin-top:16px'>" +
+      UI.card("<h2>" + esc(t("results.composition")) + UI.tooltipIcon("Shows the relative distribution of sequencing reads across biological phyla, highlighting the dominant organism groups in the water sample.") + "</h2><div style='margin-top:16px'>" +
               UI.bars((report.phyla_breakdown || []).map(function (p) {
                 return { label: p.name, value: p.reads };
               })) + "</div>") +
-      UI.card("<h2>" + esc(t("results.inventory")) + "</h2>" + speciesTable(report)) +
+      UI.card("<h2>" + esc(t("results.inventory")) + UI.tooltipIcon("An interactive table containing all detected species at the site, categorized by taxonomic rank with confidence metrics and count statistics.") + "</h2>" + speciesTable(report)) +
       exportCard(run) +
       UI.card('<details class="more"><summary>' + esc(t("results.provenance")) + "</summary>" +
         '<div class="hint mono" style="margin-top:8px;line-height:1.8">' +
@@ -1183,7 +1183,7 @@
           fetch("/api/species/Tor%20putitora/extinction-risk")
             .then(function (res) { return res.json(); })
             .then(function (pvaData) {
-              el.innerHTML += UI.pvaTrajectoryChart(pvaData);
+              el.insertAdjacentHTML("beforeend", UI.pvaTrajectoryChart(pvaData));
               if (UI.countUpAll) UI.countUpAll(el);
             })
             .catch(function () {});
@@ -1194,7 +1194,7 @@
             .then(function (pinnData) {
               if (pinnData && (pinnData.predicted_origin || (pinnData.traces && pinnData.traces.length))) {
                 var singlePinn = pinnData.predicted_origin ? pinnData : (pinnData.traces ? pinnData.traces[0] : null);
-                if (singlePinn) el.innerHTML += UI.pinnOriginCard(singlePinn);
+                if (singlePinn) el.insertAdjacentHTML("beforeend", UI.pinnOriginCard(singlePinn));
                 var entry = maps[run.run_id];
                 if (entry && entry.map) {
                   if (entry.pinnLayer) entry.map.removeLayer(entry.pinnLayer);
@@ -1211,6 +1211,56 @@
               }
             })
             .catch(function () {});
+
+            // Load 6 New Master Features
+            fetch("/api/v1/forecast/GOA-MANDOVI")
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                var host = document.getElementById("aiBriefingHost-" + run.run_id);
+                if (host && data && data.daily_forecasts) {
+                  host.insertAdjacentHTML("beforeend", UI.weatherForecastWidget(data));
+                }
+              }).catch(function () {});
+
+            fetch("/api/v1/anomalies/GOA-MANDOVI")
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                var host = document.getElementById("aiBriefingHost-" + run.run_id);
+                if (host && data && data.anomalies && data.anomalies.length) {
+                  host.insertAdjacentHTML("beforeend", UI.ecologicalAlertCard(data));
+                }
+              }).catch(function () {});
+
+            fetch("/api/v1/satellite-alerts")
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                var host = document.getElementById("aiBriefingHost-" + run.run_id);
+                if (host && data && data.change_detected) {
+                  host.insertAdjacentHTML("beforeend", UI.satelliteAlertCard(data));
+                }
+              }).catch(function () {});
+
+            fetch("/api/v1/debate")
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                var host = document.getElementById("aiBriefingHost-" + run.run_id);
+                if (host && data && data.messages) {
+                  host.insertAdjacentHTML("beforeend", UI.debatePanel(data));
+                }
+              }).catch(function () {});
+
+            fetch("/api/v1/nft/mint", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sample_id: "BR-GOA-001" })
+            })
+              .then(function (res) { return res.json(); })
+              .then(function (data) {
+                var host = document.getElementById("aiBriefingHost-" + run.run_id);
+                if (host && data && data.nft) {
+                  host.insertAdjacentHTML("beforeend", UI.nftReceiptCard(data));
+                }
+              }).catch(function () {});
 
           // Delegated event listener for Blockchain Proof Modal
           var hostEl = document.getElementById("aiBriefingHost-" + run.run_id);
@@ -1352,7 +1402,7 @@
 
   function exportCard(run) {
     var stats = run.export_stats || {};
-    return UI.card("<h2>" + esc(t("results.export")) + "</h2>" +
+    return UI.card("<h2>" + esc(t("results.export")) + UI.tooltipIcon("Provides various standard biological export formats including GBIF-compatible Darwin Core Archive (DwC-A), raw CSV, and JSON metadata.") + "</h2>" +
       '<p class="hint" style="margin-top:8px">' +
       "Every export carries the chain-of-custody hash for this run." +
       (stats.occurrences !== undefined

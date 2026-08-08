@@ -993,6 +993,46 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, ias_model.predict_establishment_risk(unquote(species_name)))
 
 
+        if path.startswith("/api/v1/anomalies/") or path.startswith("/api/anomalies/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.analytics import anomaly
+            return self._json(200, anomaly.detect_anomalies(sample_id))
+
+        if path.startswith("/api/v1/zero-shot/") or path.startswith("/api/zero-shot/"):
+            asv_id = path.split("/")[-1]
+            from bioradar.ai import zero_shot
+            return self._json(200, zero_shot.classify_unknown("", asv_id=asv_id))
+
+        if path.startswith("/api/v1/forecast/") or path.startswith("/api/forecast/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.analytics import forecast
+            return self._json(200, forecast.generate_forecast(sample_id))
+
+        if path in {"/api/v1/satellite-alerts", "/api/satellite-alerts"}:
+            from bioradar.satellite import change_detection
+            return self._json(200, change_detection.check_site_changes("BR-GOA-001"))
+
+        if path in {"/api/v1/debate", "/api/debate"}:
+            from bioradar.ai import debate
+            res = debate.run_debate("BR-GOA-001", "Mandovi Estuary Conservation Strategy")
+            return self._json(200, res)
+
+        if path.startswith("/api/v1/debate/") or path.startswith("/api/debate/"):
+            debate_id = path.split("/")[-1]
+            from bioradar.ai import debate
+            debates = debate.load_debates()
+            if debate_id in debates:
+                return self._json(200, debates[debate_id])
+            return self._json(404, {"error": "debate not found"})
+
+        if path.startswith("/api/v1/nft/") or path.startswith("/api/nft/"):
+            sample_id = path.split("/")[-1]
+            from bioradar.blockchain import nft
+            mints = nft.load_nft_mints()
+            if sample_id in mints:
+                return self._json(200, mints[sample_id])
+            return self._json(404, {"error": "nft mint not found"})
+
         if path.startswith("/api/runs/"):
             return self._run_route(path[len("/api/runs/"):])
 
@@ -1307,6 +1347,18 @@ class Handler(BaseHTTPRequestHandler):
     def _do_post(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path in {"/api/v1/debate", "/api/debate"}:
+            body = self._read_json() or {}
+            from bioradar.ai import debate
+            res = debate.run_debate(body.get("sample_id", "BR-GOA-001"), body.get("topic"))
+            return self._json(201, res)
+
+        if path in {"/api/v1/nft/mint", "/api/nft/mint"}:
+            body = self._read_json() or {}
+            from bioradar.blockchain import nft
+            res = nft.mint_nft(body.get("sample_id", "BR-GOA-001"), body.get("to_address"))
+            return self._json(201, res)
 
         if path == "/api/upload":
             return self._handle_upload(parsed.query)
