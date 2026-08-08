@@ -529,6 +529,7 @@ Never parse the raw `Taxon` lineage string yourself — use the normalizer.
 
 | Document | Covers |
 |---|---|
+| [docs/ADVANCED_FEATURES.md](docs/ADVANCED_FEATURES.md) | The 6 advanced features, logic, and mathematics |
 | [docs/RUNNING.md](docs/RUNNING.md) | Every way to run the system |
 | [docs/TESTING.md](docs/TESTING.md) | Verifying each layer |
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | Data formats between components |

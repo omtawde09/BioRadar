@@ -24,10 +24,11 @@ you change anything inside `bioradar-pipeline/`.
 python -m pytest tests/ -q
 ```
 
-**Expect:** `76 passed`.
+**Expect:** `174 passed`.
 
 What they actually protect:
 
+- **Advanced Feature Pipelines** — validates Platts-scaled forecast trends, Isolation Forest anomaly flags, zero-shot DNA k-mer similarity scoring, Sentinel-2 NDVI math, stakeholder debate consensus orchestration, and generative NFT spiral art rendering.
 - **Lineage parsing edge cases** (`tests/test_normalize.py`) — every one was
   found in real pipeline output: `c__class_Testudines_8459` (malformed rank
   labels), species names containing spaces, genus-only truncation, `Unassigned3`,
@@ -43,6 +44,7 @@ Run one group while iterating:
 ```bash
 python -m pytest tests/test_normalize.py -q
 python -m pytest tests/test_integration.py::TestChainClient -q
+python -m pytest tests/test_forecast.py -q
 ```
 
 ---
