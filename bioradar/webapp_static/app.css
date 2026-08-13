@@ -1165,3 +1165,52 @@ details[open] > summary::before { transform: rotate(90deg); }
   .card, .kpi { box-shadow: none; border: 1px solid #ccc; }
   .view { display: flex !important; }
 }
+
+/* ── Fullscreen Eco Theory Homepage view layout ── */
+body.on-home-view {
+  background: #fcfcf0 !important;
+  color: #020404 !important;
+}
+
+body.on-home-view .appbar,
+body.on-home-view .sidebar,
+body.on-home-view .tabbar {
+  display: none !important;
+}
+
+body.on-home-view .shell {
+  min-height: 100vh;
+  display: block !important;
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+}
+
+body.on-home-view .workspace {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  max-width: 100% !important;
+  display: block !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+body.on-home-view #viewHost {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  display: block !important;
+  transform: none !important;
+}
+
+body.on-home-view #view-home {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  width: 100% !important;
+  display: block !important;
+  transform: none !important;
+}
+
+

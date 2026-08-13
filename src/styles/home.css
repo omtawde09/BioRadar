@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+  
+  body {
+    background-color: #fcfcf0;
+    color: #020404;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bungee', cursive, sans-serif;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Eco Specific Utilities */
+.eco-title-pink {
+  color: #bd3b67;
+}
+
+.eco-line-green {
+  background-color: #689660;
+}
+
+.eco-line-pink {
+  background-color: #bd3b67;
+}
+
+.eco-bg-contrast {
+  background-color: #f8fef4;
+}
+
+.eco-bg-main {
+  background-color: #fcfcf0;
+}
+
+.eco-text-main {
+  color: #020404;
+}
+
+.eco-text-green {
+  color: #689660;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fcfcf0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #689660;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bd3b67;
+}
+
+/* Orbit continuous rotation */
+@keyframes spin-orbit {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-orbit {
+  animation: spin-orbit 24s linear infinite;
+}
+
