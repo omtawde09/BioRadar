@@ -1,78 +1,93 @@
 import React from 'react';
 import { Tag, MapPin, ArrowUpRight, Sparkles } from 'lucide-react';
 import { PopUp, RiseUp, StaggerContainer, StaggerItem } from './MotionReveal';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface IndianEcosystemsSectionProps {
   onNavigateView?: (viewId: string) => void;
 }
 
 export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = ({ onNavigateView }) => {
+  const { t, isHindi } = useTranslation();
+
   const sites = [
     {
       id: 1,
-      name: 'MANDOVI ESTUARY',
-      state: 'Goa',
+      name: isHindi ? 'मांडवी मुहाना' : 'MANDOVI ESTUARY',
+      state: isHindi ? 'गोवा' : 'Goa',
       locationCode: 'GOA',
-      type: 'Estuarine Mangrove & Tidal Salinity',
-      taxaCount: '1,420+ Taxa',
-      invasiveStatus: 'Monitored',
+      type: isHindi ? 'मुहाना मैंग्रोव व ज्वारीय लवणता' : 'Estuarine Mangrove & Tidal Salinity',
+      taxaCount: isHindi ? '1,420+ प्रजातियाँ' : '1,420+ Taxa',
+      invasiveStatus: isHindi ? 'निगरानीधीन' : 'Monitored',
       image: '/static/assets/mandovi.png',
-      desc: 'Tidal confluence supporting estuarine shellfish and commercial fisheries.'
+      desc: isHindi
+        ? 'मुहाना शंख-सीपी और वाणिज्यिक मत्स्य पालन को सहारा देने वाला ज्वारीय संगम।'
+        : 'Tidal confluence supporting estuarine shellfish and commercial fisheries.'
     },
     {
       id: 2,
-      name: 'VEMBANAD LAKE',
-      state: 'Kerala',
+      name: isHindi ? 'वेम्बनाड झील' : 'VEMBANAD LAKE',
+      state: isHindi ? 'केरल' : 'Kerala',
       locationCode: 'KL',
-      type: 'Ramsar Wetland & Brackish Lagoon',
-      taxaCount: '1,890+ Taxa',
-      invasiveStatus: 'Water Hyacinth',
+      type: isHindi ? 'रामसर आर्द्रभूमि व खारा लैगून' : 'Ramsar Wetland & Brackish Lagoon',
+      taxaCount: isHindi ? '1,890+ प्रजातियाँ' : '1,890+ Taxa',
+      invasiveStatus: isHindi ? 'जलकुंभी' : 'Water Hyacinth',
       image: '/static/assets/vembanand.png',
-      desc: 'Largest brackish lagoon in India; monitored for nutrient enrichment.'
+      desc: isHindi
+        ? 'भारत का सबसे बड़ा खारा लैगून; पोषक तत्वों की प्रचुरता की निरंतर निगरानी।'
+        : 'Largest brackish lagoon in India; monitored for nutrient enrichment.'
     },
     {
       id: 3,
-      name: 'KOLLERU LAKE',
-      state: 'Andhra Pradesh',
+      name: isHindi ? 'कोलेरु झील' : 'KOLLERU LAKE',
+      state: isHindi ? 'आंध्र प्रदेश' : 'Andhra Pradesh',
       locationCode: 'AP',
-      type: 'Freshwater Pelagic Wetland',
-      taxaCount: '1,120+ Taxa',
-      invasiveStatus: 'Aquaculture',
+      type: isHindi ? 'मीठे जल की पेलाजिक आर्द्रभूमि' : 'Freshwater Pelagic Wetland',
+      taxaCount: isHindi ? '1,120+ प्रजातियाँ' : '1,120+ Taxa',
+      invasiveStatus: isHindi ? 'एक्वाकल्चर' : 'Aquaculture',
       image: '/static/assets/kolleru.png',
-      desc: 'Critical pelican sanctuary surrounded by inland aquaculture ponds.'
+      desc: isHindi
+        ? 'अन्तर्देशीय मछली पालन तालाबों से घिरा पेलिकन पक्षी अभयारण्य।'
+        : 'Critical pelican sanctuary surrounded by inland aquaculture ponds.'
     },
     {
       id: 4,
-      name: 'GULF OF MANNAR',
-      state: 'Tamil Nadu',
+      name: isHindi ? 'मन्नार की खाड़ी' : 'GULF OF MANNAR',
+      state: isHindi ? 'तमिलनाडु' : 'Tamil Nadu',
       locationCode: 'TN',
-      type: 'Marine Biosphere Reserve',
-      taxaCount: '2,450+ Taxa',
-      invasiveStatus: 'Coral Watch',
+      type: isHindi ? 'राष्ट्रीय समुद्री बायोस्फीयर रिज़र्व' : 'Marine Biosphere Reserve',
+      taxaCount: isHindi ? '2,450+ प्रजातियाँ' : '2,450+ Taxa',
+      invasiveStatus: isHindi ? 'प्रवाल निगरानी' : 'Coral Watch',
       image: '/static/assets/gulf-of-manner.png',
-      desc: 'Coral reef archipelago supporting dugongs, turtles, and 117 coral taxa.'
+      desc: isHindi
+        ? 'डुगोंग, समुद्री कछुओं और 117 प्रवाल प्रजातियों से समृद्ध प्रवाल भित्ति द्वीपसमूह।'
+        : 'Coral reef archipelago supporting dugongs, turtles, and 117 coral taxa.'
     },
     {
       id: 5,
-      name: 'KAVARATTI LAGOON',
-      state: 'Lakshadweep',
+      name: isHindi ? 'कवरत्ती लैगून' : 'KAVARATTI LAGOON',
+      state: isHindi ? 'लक्षद्वीप' : 'Lakshadweep',
       locationCode: 'LD',
-      type: 'Atoll Lagoon & Seagrass',
-      taxaCount: '1,680+ Taxa',
-      invasiveStatus: 'Pristine',
+      type: isHindi ? 'एटोल लैगून व समुद्री घास' : 'Atoll Lagoon & Seagrass',
+      taxaCount: isHindi ? '1,680+ प्रजातियाँ' : '1,680+ Taxa',
+      invasiveStatus: isHindi ? 'प्राचीन' : 'Pristine',
       image: '/static/assets/kavaretti.png',
-      desc: 'Seagrass and coral atoll habitat monitored as a pristine oceanic baseline.'
+      desc: isHindi
+        ? 'शुद्ध महासागरीय बेसलाइन के रूप में मॉनिटर किया गया एटोल और समुद्री घास पर्यावास।'
+        : 'Seagrass and coral atoll habitat monitored as a pristine oceanic baseline.'
     },
     {
       id: 6,
-      name: 'SOUTH ANDAMAN',
-      state: 'Andaman & Nicobar',
+      name: isHindi ? 'दक्षिण अंडमान' : 'SOUTH ANDAMAN',
+      state: isHindi ? 'अंडमान व निकोबार' : 'Andaman & Nicobar',
       locationCode: 'AN',
-      type: 'Deep Trench & Mangrove Creek',
-      taxaCount: '2,110+ Taxa',
-      invasiveStatus: 'Ballast Alert',
+      type: isHindi ? 'गहरी समुद्री खाई व मैंग्रोव' : 'Deep Trench & Mangrove Creek',
+      taxaCount: isHindi ? '2,110+ प्रजातियाँ' : '2,110+ Taxa',
+      invasiveStatus: isHindi ? 'बैलास्ट अलर्ट' : 'Ballast Alert',
       image: '/static/assets/south-andaman.png',
-      desc: 'International shipping lane junction monitored for ballast water introductions.'
+      desc: isHindi
+        ? 'जहाज बैलास्ट जल द्वारा नई विदेशी प्रजातियों के प्रवेश की निगरानी हेतु रणनीतिक केंद्र।'
+        : 'International shipping lane junction monitored for ballast water introductions.'
     }
   ];
 
@@ -95,14 +110,14 @@ export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = (
         <RiseUp className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
           <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
             <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
-            <span>Validated Aquatic Baselines</span>
+            <span>{t('eco_sites.badge')}</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
-            PILOT SURVEY ECOSYSTEMS ACROSS INDIA
+            {t('eco_sites.title')}
           </h2>
           <div className="w-20 h-1.5 bg-[#bd3b67] mx-auto mt-3 rounded-full shadow-sm" />
           <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
-            Real-world baseline stations benchmarked against National Biodiversity Authority (NBA) conservation priority zones.
+            {t('eco_sites.subtitle')}
           </p>
         </RiseUp>
 
@@ -165,7 +180,7 @@ export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = (
                   onClick={() => handleViewSite(site.id)}
                   className="w-full bg-[#ffffff] text-[#020404] hover:bg-[#689660] hover:text-white border-2 border-white hover:border-[#4d7346] py-3.5 px-6 rounded-full text-xs font-bold font-sans uppercase tracking-wider text-center transition-all shadow-tactile-btn flex items-center justify-center space-x-2 transform active:translate-y-0.5"
                 >
-                  <span>View Site Baseline</span>
+                  <span>{isHindi ? 'बेसलाइन डेटा देखें' : 'View Site Baseline'}</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>

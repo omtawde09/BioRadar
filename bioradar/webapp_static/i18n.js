@@ -23,6 +23,7 @@
   var STRINGS = {
     en: {
       "app.subtitle": "eDNA Biodiversity Intelligence",
+      "nav.home": "Home",
       "nav.analyze": "Analyze",
       "nav.monitor": "Monitor",
       "nav.results": "Results",
@@ -137,6 +138,7 @@
 
     hi: {
       "app.subtitle": "eDNA जैवविविधता इंटेलिजेंस",
+      "nav.home": "मुख्य पृष्ठ",
       "nav.analyze": "विश्लेषण",
       "nav.monitor": "निगरानी",
       "nav.results": "परिणाम",

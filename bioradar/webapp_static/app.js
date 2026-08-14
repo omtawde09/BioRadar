@@ -157,16 +157,20 @@
   function buildShell() {
     var sidebar = document.getElementById("sidebar");
     var tabbar = document.getElementById("tabbar");
+    var appbarNav = document.getElementById("appbarNav");
     var workspace = document.getElementById("viewHost");
     var actions = document.getElementById("appbarActions");
 
     var views = Registry.bySlot("main-view");
 
-    sidebar.innerHTML = views.map(navButton).join("");
+    if (sidebar) sidebar.innerHTML = views.map(navButton).join("");
+    if (appbarNav) appbarNav.innerHTML = views.map(appbarNavButton).join("");
     // Four is the ceiling for a phone tab bar; the rest stay reachable from the
     // sidebar on any screen wide enough to show it.
-    tabbar.innerHTML = views.filter(function (f) { return f.primary; })
-                            .slice(0, 4).map(navButton).join("");
+    if (tabbar) {
+      tabbar.innerHTML = views.filter(function (f) { return f.primary; })
+                              .slice(0, 4).map(navButton).join("");
+    }
 
     workspace.innerHTML = views.map(function (feature) {
       return '<section class="view" id="view-' + esc(feature.id) +
@@ -189,6 +193,14 @@
       UI.icon(feature.icon) +
       '<span class="nav-badge" data-badge="' + esc(feature.id) + '" data-count="0"></span>' +
       "<span>" + esc(feature.label()) + "</span></button>";
+  }
+
+  function appbarNavButton(feature) {
+    return '<button class="appbar-nav-item" type="button" role="tab" data-view="' + esc(feature.id) +
+      '" id="appbar-nav-' + esc(feature.id) + '" aria-current="false">' +
+      UI.icon(feature.icon, 15) +
+      '<span>' + esc(feature.label()) + '</span>' +
+      '<span class="nav-badge" data-badge="' + esc(feature.id) + '" data-count="0"></span></button>';
   }
 
   function showView(id) {
@@ -330,7 +342,7 @@
   Registry.registerFeature({
     id: "home", name: "Home", slot: "main-view", order: 5, primary: true,
     icon: "home",
-    label: function () { return "Home"; },
+    label: function () { return t("nav.home", "Home"); },
     mount: function (container) {
       if (window.mountBioRadarHome) {
         window.mountBioRadarHome(container, function (viewId) {

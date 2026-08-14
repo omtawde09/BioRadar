@@ -156,3 +156,68 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #bd3b67;
 }
+
+/* ── Sleek Animated Underline Hover Effect for Transparent Navbar ── */
+.nav-link-underline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  transition: color 0.25s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  width: 90%;
+  height: 2.5px;
+  border-radius: 2px;
+  background: #82b978;
+  box-shadow: 0 0 12px rgba(130, 185, 120, 0.9);
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+}
+
+.nav-link-underline:hover {
+  color: #82b978;
+}
+
+.nav-link-underline:hover::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.nav-link-underline.active {
+  color: #82b978;
+}
+
+.nav-link-underline.active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.nav-link-underline-rose:hover {
+  color: #e66a93;
+}
+
+.nav-link-underline-rose::after {
+  background: #e66a93;
+  box-shadow: 0 0 12px rgba(230, 106, 147, 0.9);
+}
+
+.nav-link-underline-rose.active {
+  color: #e66a93;
+}
+
+.nav-link-underline-rose.active::after {
+  transform: translateX(-50%) scaleX(1);
+  background: #e66a93;
+}
+
+

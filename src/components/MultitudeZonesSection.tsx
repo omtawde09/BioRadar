@@ -1,75 +1,89 @@
 import React, { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ArrowUpRight, Activity, Map, MessageSquare, AlertTriangle, Satellite, Coins, Sparkles } from 'lucide-react';
 import { PopUp, RiseUp, StaggerContainer, StaggerItem } from './MotionReveal';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface MultitudeZonesSectionProps {
   onNavigateView?: (viewId: string) => void;
 }
 
 export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ onNavigateView }) => {
+  const { t, isHindi } = useTranslation();
   const [activeMobileIndex, setActiveMobileIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const zones = [
     {
       id: 1,
-      title: 'AUTOMATED FASTQ PRE-FLIGHT',
-      category: 'Diagnostic Zone',
-      badge: 'Zero-Configuration Pipeline',
+      title: isHindi ? 'स्वचालित FASTQ प्री-फ़्लाइट' : 'AUTOMATED FASTQ PRE-FLIGHT',
+      category: isHindi ? 'नैदानिक ज़ोन' : 'Diagnostic Zone',
+      badge: isHindi ? 'शून्य-कॉन्फ़िगरेशन पाइपलाइन' : 'Zero-Configuration Pipeline',
       image: '/static/assets/diagnostic-zone.png',
       viewId: 'analyze',
       icon: Activity,
-      desc: 'Automatic marker discovery, primer verification, reverse mate swap detection, and quality curve assessment in 1 second before long compute starts.'
+      desc: isHindi
+        ? 'लंबी गणना शुरू होने से पहले 1 सेकंड में स्वचालित मार्कर पहचान, प्राइमर सत्यापन, उल्टे मेट का पता लगाना और गुणवत्ता वक्र विश्लेषण।'
+        : 'Automatic marker discovery, primer verification, reverse mate swap detection, and quality curve assessment in 1 second before long compute starts.'
     },
     {
       id: 2,
-      title: 'SPATIAL BIODIVERSITY RADAR',
-      category: 'Geospatial Zone',
-      badge: 'Interactive GIS & Clustering',
+      title: isHindi ? 'स्थानिक जैवविविधता रडार' : 'SPATIAL BIODIVERSITY RADAR',
+      category: isHindi ? 'जियोस्पेशियल ज़ोन' : 'Geospatial Zone',
+      badge: isHindi ? 'इंटरैक्टिव GIS व क्लस्टरिंग' : 'Interactive GIS & Clustering',
       image: '/static/assets/geospatial-zone.png',
       viewId: 'compare',
       icon: Map,
-      desc: 'Interactive GIS mapping across coastal sites with taxonomic tree composition, Shannon diversity metrics, and multi-site comparative radar overlays.'
+      desc: isHindi
+        ? 'टैक्सोनॉमिक ट्री संरचना, शैनन विविधता सूचकांक और बहु-स्थल तुलनात्मक रडार ओवरले के साथ तटीय स्थलों का इंटरैक्टिव GIS मानचित्र।'
+        : 'Interactive GIS mapping across coastal sites with taxonomic tree composition, Shannon diversity metrics, and multi-site comparative radar overlays.'
     },
     {
       id: 3,
-      title: 'MULTI-AGENT CONSERVATION DEBATE',
-      category: 'Governance Zone',
-      badge: 'AI Policy Orchestration',
+      title: isHindi ? 'मल्टी-एजेंट संरक्षण संवाद' : 'MULTI-AGENT CONSERVATION DEBATE',
+      category: isHindi ? 'प्रशासन ज़ोन' : 'Governance Zone',
+      badge: isHindi ? 'AI नीति ऑर्केस्ट्रेशन' : 'AI Policy Orchestration',
       image: '/static/assets/governance-zone.png',
       viewId: 'results',
       icon: MessageSquare,
-      desc: 'Simulated round-table deliberation between Forest Officers, Fishermen Representatives, NGOs, and Regulators to draft balanced zoning policies.'
+      desc: isHindi
+        ? 'संतुलित तटीय ज़ोनिंग नीतियां तैयार करने के लिए वन अधिकारियों, मछुआरों के प्रतिनिधियों, NGOs और नियामकों के बीच सिम्युलेटेड गोलमेज विमर्श।'
+        : 'Simulated round-table deliberation between Forest Officers, Fishermen Representatives, NGOs, and Regulators to draft balanced zoning policies.'
     },
     {
       id: 4,
-      title: 'INVASIVE SPECIES ANOMALY SENTINEL',
-      category: 'Biosecurity Zone',
-      badge: 'Real-time Early Warning',
+      title: isHindi ? 'आक्रामक प्रजाति विसंगति संतरी' : 'INVASIVE SPECIES ANOMALY SENTINEL',
+      category: isHindi ? 'जैवसुरक्षा ज़ोन' : 'Biosecurity Zone',
+      badge: isHindi ? 'रियल-टाइम पूर्व चेतावनी' : 'Real-time Early Warning',
       image: '/static/assets/biosecurity-zone.png',
       viewId: 'alerts',
       icon: AlertTriangle,
-      desc: 'Statistical 3-sigma biological control limits and Isolation Forest anomaly models to catch sudden bio-invasions before ecological collapse.'
+      desc: isHindi
+        ? 'पारिस्थितिक असंतुलन से पहले अचानक जैव-आक्रमण को पकड़ने के लिए सांख्यिकीय 3-सिग्मा नियंत्रण सीमाएँ और आइसोलेशन फ़ॉरेस्ट विसंगति मॉडल।'
+        : 'Statistical 3-sigma biological control limits and Isolation Forest anomaly models to catch sudden bio-invasions before ecological collapse.'
     },
     {
       id: 5,
-      title: 'SENTINEL-2 CANOPY CHANGE TRACKING',
-      category: 'Remote Sensing Zone',
-      badge: 'Space-to-Sequence Correlation',
+      title: isHindi ? 'सेंटिनल-2 कैनोपी परिवर्तन ट्रैकिंग' : 'SENTINEL-2 CANOPY CHANGE TRACKING',
+      category: isHindi ? 'रिमोट सेंसिंग ज़ोन' : 'Remote Sensing Zone',
+      badge: isHindi ? 'अंतरिक्ष से सीक्वेंस सहसंबंध' : 'Space-to-Sequence Correlation',
       image: '/static/assets/remote-zone.png',
       viewId: 'results',
       icon: Satellite,
-      desc: 'Copernicus Sentinel-2 surface reflectance integration calculating NDVI deltas within a 2 km riparian buffer around sampling stations.'
+      desc: isHindi
+        ? 'नमूना स्टेशनों के चारों ओर 2 किमी के बफर में NDVI परिवर्तन की गणना करने वाला कॉपरनिकस सेंटिनल-2 सतही परावर्तन एकीकरण।'
+        : 'Copernicus Sentinel-2 surface reflectance integration calculating NDVI deltas within a 2 km riparian buffer around sampling stations.'
     },
     {
       id: 6,
-      title: 'BLOCKCHAIN PROOF & NFT STEWARDSHIP',
-      category: 'Provenance Zone',
-      badge: 'Immutable Verification',
+      title: isHindi ? 'ब्लॉकचेन डिजिटल साक्ष्य व ट्रस्ट' : 'BLOCKCHAIN PROOF & NFT STEWARDSHIP',
+      category: isHindi ? 'डिजिटल उद्गम ज़ोन' : 'Provenance Zone',
+      badge: isHindi ? 'अपरिवर्तनीय सत्यापन' : 'Immutable Verification',
       image: '/static/assets/provenance-zone.png',
       viewId: 'settings',
       icon: Coins,
-      desc: 'Tamper-proof cryptographic hashes of all FASTQ reads and QZA artifacts, with ERC-721 conservation sponsorship tokens featuring generative DNA art.'
+      desc: isHindi
+        ? 'सभी FASTQ रीड्स और विश्लेषणात्मक निष्कर्षों का छेड़छाड़-मुक्त क्रिप्टोग्राफ़िक SHA-256 हैश एवं ERC-721 संरक्षण प्रायोजन टोकन।'
+        : 'Tamper-proof cryptographic hashes of all FASTQ reads and QZA artifacts, with ERC-721 conservation sponsorship tokens featuring generative DNA art.'
     }
   ];
 
@@ -105,19 +119,19 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
           <div>
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
               <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
-              <span>Operational Platform Features</span>
+              <span>{t('zones.badge')}</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
-              6 CAPABILITIES : MULTITUDE OF EXPERIENCES
+              {t('zones.title')}
             </h2>
             <div className="w-28 h-1.5 bg-[#689660] mt-3 rounded-full shadow-sm" />
             <p className="text-xs sm:text-sm text-[#5a6258] mt-2 max-w-xl font-sans font-medium">
-              Explore the interconnected operational modules powering BioRadar across genomic analysis, GIS mapping, AI policy, and provenance proof.
+              {t('zones.subtitle')}
             </p>
           </div>
 
-          {/* Slider Controls: Mobile / Tablet Only */}
-          <div className="flex lg:hidden items-center space-x-3 mt-6 sm:mt-0">
+          {/* Slider Controls */}
+          <div className="hidden items-center space-x-3 mt-6 sm:mt-0">
             <button
               type="button"
               onClick={() => scrollToCard(activeMobileIndex - 1)}
@@ -191,7 +205,7 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
                     onClick={() => handleActionClick(zone.viewId)}
                     className="w-full bg-[#ffffff] text-[#020404] hover:bg-[#689660] hover:text-white border-2 border-[#e2e6d8] hover:border-[#4d7346] py-3.5 px-4 rounded-full text-xs font-bold uppercase tracking-wider transition-all text-center shadow-tactile-btn flex items-center justify-center space-x-2 transform active:translate-y-0.5"
                   >
-                    <span>Launch Capability</span>
+                    <span>{isHindi ? 'मॉड्यूल खोलें' : 'Launch Capability'}</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
