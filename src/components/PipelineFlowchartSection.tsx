@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Droplet, FileCode, CheckCircle2, Sliders, Database, Link, ArrowRight, ChevronRight, Layers, Cpu, ShieldCheck } from 'lucide-react';
+import { Droplet, FileCode, CheckCircle2, Sliders, Database, Link, ArrowRight, ChevronRight, Layers, Cpu, ShieldCheck, Sparkles } from 'lucide-react';
 
 export const PipelineFlowchartSection: React.FC = () => {
   const [selectedStage, setSelectedStage] = useState(0);
@@ -113,24 +113,29 @@ export const PipelineFlowchartSection: React.FC = () => {
   const IconComponent = current.icon;
 
   return (
-    <section id="pipeline" className="bg-[#ffffff] py-20 px-4 sm:px-6 lg:px-8 border-b border-[#e2e6d8] font-sans">
-      <div className="max-w-7xl mx-auto">
+    <section id="pipeline" className="relative bg-[#ffffff] bg-bio-neural py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] font-sans overflow-hidden">
+      {/* Decorative ambient background glows */}
+      <div className="absolute top-1/3 left-10 w-72 h-72 rounded-full bg-[#689660]/8 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/3 right-10 w-72 h-72 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Section Heading */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#689660] block mb-2 font-sans">
-            End-to-End Scientific Architecture
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
+        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#f8fef4] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
+            <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
+            <span>End-to-End Scientific Architecture</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
             HOW BIORADAR WORKS : THE PIPELINE FLOWCHART
           </h2>
-          <div className="w-20 h-1.5 bg-[#bd3b67] mx-auto mt-3 rounded-full" />
-          <p className="text-sm sm:text-base text-[#5a6258] mt-4 font-sans">
+          <div className="w-20 h-1.5 bg-[#bd3b67] mx-auto mt-3 rounded-full shadow-sm" />
+          <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
             A deterministic, peer-reviewed computational pipeline converting raw environmental water samples into verified biodiversity intelligence.
           </p>
         </div>
 
         {/* Interactive Step Selector Bar (Horizontal Flowchart Diagram) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 sm:mb-10">
           {stages.map((stage, index) => {
             const StageIcon = stage.icon;
             const isSelected = selectedStage === index;
@@ -139,22 +144,22 @@ export const PipelineFlowchartSection: React.FC = () => {
                 key={stage.id}
                 type="button"
                 onClick={() => setSelectedStage(index)}
-                className={`flex flex-col items-center text-center p-4 rounded-2xl border transition-all text-left relative ${
+                className={`flex flex-col items-center text-center p-3.5 sm:p-4 rounded-2xl border-2 transition-all relative ${
                   isSelected
-                    ? 'bg-[#f8fef4] border-2 border-[#689660] shadow-eco-md'
-                    : 'bg-[#ffffff] border-[#e2e6d8] hover:border-[#689660]'
+                    ? 'bg-[#f8fef4] border-[#689660] shadow-tactile-card transform -translate-y-1'
+                    : 'bg-[#ffffff] border-[#e2e6d8] hover:border-[#689660] shadow-sm hover:shadow-md'
                 }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-2 shadow-sm transition-transform ${
                     isSelected
-                      ? 'bg-[#689660] text-white'
+                      ? 'bg-[#689660] text-white scale-105'
                       : 'bg-[#f8fef4] text-[#689660] border border-[#e2e6d8]'
                   }`}
                 >
                   <StageIcon className="w-5 h-5" />
                 </div>
-                <span className="text-[11px] font-normal uppercase tracking-wider text-[#bd3b67] font-heading">
+                <span className="text-[10px] sm:text-[11px] font-normal uppercase tracking-wider text-[#bd3b67] font-heading">
                   Step 0{stage.id}
                 </span>
                 <span className="text-xs font-bold text-[#020404] line-clamp-1 mt-0.5 font-sans">
@@ -166,74 +171,74 @@ export const PipelineFlowchartSection: React.FC = () => {
         </div>
 
         {/* Active Stage Detailed Panel */}
-        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-eco-md">
+        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Stage Summary & Details */}
             <div className="lg:col-span-7 space-y-6">
               <div className="flex items-center space-x-3">
-                <span className="px-3 py-1 rounded-full bg-[#ffffff] border border-[#689660] text-xs font-bold text-[#689660] font-sans">
+                <span className="px-3.5 py-1 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold text-[#1b5e20] font-sans shadow-sm">
                   {current.badge}
                 </span>
-                <span className="text-xs font-normal uppercase tracking-wider text-[#bd3b67] font-heading">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#bd3b67] font-heading">
                   Stage {current.id} of 6
                 </span>
               </div>
 
               <div>
-                <h3 className="text-2xl sm:text-3xl font-normal text-[#020404] font-heading uppercase">
+                <h3 className="text-xl sm:text-3xl font-normal text-[#020404] font-heading uppercase">
                   {current.title}
                 </h3>
-                <p className="text-sm sm:text-base text-[#020404] font-medium mt-2 leading-relaxed font-sans">
+                <p className="text-xs sm:text-base text-[#020404] font-medium mt-2 leading-relaxed font-sans">
                   {current.summary}
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#ffffff] border border-[#e2e6d8]">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#bd3b67] mb-2 font-sans">
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] shadow-sm">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#bd3b67] mb-2.5 font-sans">
                   Computational & Biological Mechanisms:
                 </h4>
                 <ul className="space-y-2 font-sans">
                   {current.processes.map((proc, pIdx) => (
-                    <li key={pIdx} className="flex items-start space-x-2 text-xs sm:text-sm text-[#020404]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#689660] mt-1.5 shrink-0" />
+                    <li key={pIdx} className="flex items-start space-x-2.5 text-xs sm:text-sm text-[#020404] font-medium">
+                      <span className="w-2 h-2 rounded-full bg-[#689660] mt-1.5 shrink-0" />
                       <span>{proc}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <p className="text-xs sm:text-sm text-[#5a6258] leading-relaxed font-sans">
+              <p className="text-xs sm:text-sm text-[#5a6258] leading-relaxed font-sans font-medium">
                 {current.details}
               </p>
             </div>
 
             {/* Stage Input / Output Contract Card */}
             <div className="lg:col-span-5 space-y-4 font-sans">
-              <div className="p-5 rounded-2xl bg-[#ffffff] border border-[#e2e6d8] shadow-eco-sm">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#5a6258] mb-1">
+              <div className="p-5 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] shadow-tactile-card">
+                <div className="text-xs font-bold uppercase tracking-wider text-[#5a6258] mb-1.5">
                   STAGE INPUT
                 </div>
-                <div className="text-sm font-semibold text-[#020404]">
+                <div className="text-xs sm:text-sm font-semibold text-[#020404]">
                   {current.inputs}
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#ffffff] border-2 border-[#689660] shadow-eco-sm">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#689660] mb-1">
+              <div className="p-5 rounded-2xl bg-[#ffffff] border-2 border-[#689660] shadow-tactile-card">
+                <div className="text-xs font-bold uppercase tracking-wider text-[#1b5e20] mb-1.5">
                   STAGE OUTPUT ARTIFACT
                 </div>
-                <div className="text-sm font-bold text-[#020404]">
+                <div className="text-xs sm:text-sm font-bold text-[#020404]">
                   {current.output}
                 </div>
               </div>
 
-              {/* Navigation buttons between steps */}
-              <div className="flex items-center justify-between pt-2">
+              {/* Navigation buttons between steps with 3D depth */}
+              <div className="flex items-center justify-between pt-2 gap-3">
                 <button
                   type="button"
                   disabled={selectedStage === 0}
                   onClick={() => setSelectedStage(prev => Math.max(0, prev - 1))}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#ffffff] border border-[#e2e6d8] disabled:opacity-40 hover:bg-[#f8fef4]"
+                  className="flex-1 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider bg-[#ffffff] border-2 border-[#e2e6d8] disabled:opacity-40 hover:bg-[#f8fef4] shadow-sm transition-all text-center"
                 >
                   Previous Step
                 </button>
@@ -241,7 +246,7 @@ export const PipelineFlowchartSection: React.FC = () => {
                   type="button"
                   disabled={selectedStage === stages.length - 1}
                   onClick={() => setSelectedStage(prev => Math.min(stages.length - 1, prev + 1))}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#689660] text-white disabled:opacity-40 hover:bg-[#588051]"
+                  className="flex-1 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider bg-[#689660] text-white border-2 border-[#476d40] disabled:opacity-40 hover:bg-[#588051] shadow-tactile-btn transition-all text-center"
                 >
                   Next Step
                 </button>

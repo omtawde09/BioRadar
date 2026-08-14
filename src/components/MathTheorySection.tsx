@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cpu, Variable, LineChart, Binary, Eye, ShieldAlert } from 'lucide-react';
+import { Cpu, Variable, LineChart, Binary, Eye, ShieldAlert, Sparkles } from 'lucide-react';
 
 export const MathTheorySection: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -70,24 +70,29 @@ export const MathTheorySection: React.FC = () => {
   const current = models[activeTab];
 
   return (
-    <section id="models" className="bg-[#ffffff] py-20 px-4 sm:px-6 lg:px-8 border-b border-[#e2e6d8] font-sans">
-      <div className="max-w-7xl mx-auto">
+    <section id="models" className="relative bg-[#ffffff] bg-bio-neural py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] font-sans overflow-hidden">
+      {/* Decorative ambient background glows */}
+      <div className="absolute top-1/4 left-10 w-80 h-80 rounded-full bg-[#689660]/8 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-10 w-80 h-80 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#bd3b67] block mb-2 font-sans">
-            Theoretical Foundations
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
+        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#f8fef4] border-2 border-[#bd3b67] text-xs font-bold uppercase tracking-wider text-[#bd3b67] shadow-sm mb-3">
+            <Sparkles className="w-3.5 h-3.5 text-[#bd3b67]" />
+            <span>Theoretical Foundations</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
             MATHEMATICS & AI MODELS BEHIND BIORADAR
           </h2>
-          <div className="w-20 h-1.5 bg-[#689660] mx-auto mt-3 rounded-full" />
-          <p className="text-sm sm:text-base text-[#5a6258] mt-4 font-sans">
+          <div className="w-20 h-1.5 bg-[#689660] mx-auto mt-3 rounded-full shadow-sm" />
+          <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
             Rigorous mathematical formulations governing temporal biodiversity forecasting, alignment-free taxonomy, and biosecurity anomaly detection.
           </p>
         </div>
 
         {/* Model Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-10 font-sans">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-8 sm:mb-10 font-sans">
           {models.map((m, idx) => {
             const Icon = m.icon;
             const isSel = activeTab === idx;
@@ -96,10 +101,10 @@ export const MathTheorySection: React.FC = () => {
                 key={m.id}
                 type="button"
                 onClick={() => setActiveTab(idx)}
-                className={`inline-flex items-center space-x-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border ${
+                className={`inline-flex items-center space-x-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border-2 ${
                   isSel
-                    ? 'bg-[#689660] text-white border-[#689660] shadow-sm'
-                    : 'bg-[#f8fef4] text-[#020404] border-[#e2e6d8] hover:border-[#689660]'
+                    ? 'bg-[#689660] text-white border-[#476d40] shadow-tactile-btn transform -translate-y-0.5'
+                    : 'bg-[#f8fef4] text-[#020404] border-[#e2e6d8] hover:border-[#689660] shadow-sm'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -110,7 +115,7 @@ export const MathTheorySection: React.FC = () => {
         </div>
 
         {/* Active Model Deep Dive Box */}
-        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-eco-md">
+        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
           <div className="space-y-6">
             <div>
               <span className="text-xs font-bold text-[#bd3b67] uppercase tracking-wider block mb-1 font-sans">
@@ -123,39 +128,39 @@ export const MathTheorySection: React.FC = () => {
 
             {/* Formula Block */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-[#ffffff] border border-[#e2e6d8] font-mono text-sm text-[#020404]">
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] font-mono text-sm text-[#020404] shadow-sm">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[#5a6258] mb-2 font-sans">
                   Primary Regression / Mapping Function:
                 </div>
-                <div className="p-3 bg-[#f8fef4] rounded-xl text-[#bd3b67] font-bold text-xs sm:text-sm overflow-x-auto">
+                <div className="p-3 bg-[#f8fef4] rounded-xl text-[#bd3b67] font-bold text-xs sm:text-sm overflow-x-auto border border-[#ebd2dc]">
                   {current.formula}
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#ffffff] border border-[#e2e6d8] font-mono text-sm text-[#020404]">
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] font-mono text-sm text-[#020404] shadow-sm">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[#5a6258] mb-2 font-sans">
                   Classification / Decision Threshold:
                 </div>
-                <div className="p-3 bg-[#f8fef4] rounded-xl text-[#689660] font-bold text-xs sm:text-sm overflow-x-auto">
+                <div className="p-3 bg-[#f8fef4] rounded-xl text-[#1b5e20] font-bold text-xs sm:text-sm overflow-x-auto border border-[#d6e4d0]">
                   {current.probabilityFormula}
                 </div>
               </div>
             </div>
 
             {/* Description Narrative */}
-            <div className="p-6 rounded-2xl bg-[#ffffff] border border-[#e2e6d8] font-sans">
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] font-sans shadow-sm">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#020404] mb-2 font-sans">
                 Mathematical Context & Biological Application:
               </h4>
-              <p className="text-xs sm:text-sm text-[#5a6258] leading-relaxed font-sans">
+              <p className="text-xs sm:text-sm text-[#020404] font-medium leading-relaxed font-sans">
                 {current.explanation}
               </p>
             </div>
 
             {/* Parameter Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-sans">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 font-sans">
               {current.metrics.map((m, mIdx) => (
-                <div key={mIdx} className="p-4 rounded-2xl bg-[#ffffff] border border-[#e2e6d8] text-center">
+                <div key={mIdx} className="p-4 rounded-2xl bg-[#ffffff] border-2 border-[#e2e6d8] text-center shadow-sm">
                   <div className="text-xs font-bold text-[#5a6258] uppercase tracking-wider mb-1 font-sans">
                     {m.label}
                   </div>

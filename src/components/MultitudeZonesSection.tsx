@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowUpRight, Activity, Map, MessageSquare, AlertTriangle, Satellite, Coins } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpRight, Activity, Map, MessageSquare, AlertTriangle, Satellite, Coins, Sparkles } from 'lucide-react';
 
 interface MultitudeZonesSectionProps {
   onNavigateView?: (viewId: string) => void;
@@ -93,18 +93,23 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
   };
 
   return (
-    <section id="zones" className="bg-[#fcfcf0] py-20 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] font-sans">
-      <div className="max-w-7xl mx-auto">
+    <section id="zones" className="relative bg-[#fcfcf0] bg-bio-neural py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] font-sans overflow-hidden">
+      {/* Decorative ambient background glows */}
+      <div className="absolute top-1/4 right-10 w-80 h-80 rounded-full bg-[#689660]/8 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 left-10 w-80 h-80 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Section Header with Green Accent Line */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-[#689660] block mb-2 font-sans">
-              Operational Platform Features
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
+              <span>Operational Platform Features</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-normal uppercase text-[#020404] tracking-wide font-heading">
               6 CAPABILITIES : MULTITUDE OF EXPERIENCES
             </h2>
-            <div className="w-28 h-1.5 bg-[#689660] mt-3 rounded-full" />
+            <div className="w-28 h-1.5 bg-[#689660] mt-3 rounded-full shadow-sm" />
             <p className="text-xs sm:text-sm text-[#5a6258] mt-2 max-w-xl font-sans font-medium">
               Explore the interconnected operational modules powering BioRadar across genomic analysis, GIS mapping, AI policy, and provenance proof.
             </p>
@@ -145,7 +150,7 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
             return (
               <div
                 key={zone.id}
-                className="min-w-[85vw] sm:min-w-[320px] lg:min-w-0 snap-center rounded-[28px] bg-[#141e15] border-2 border-[#2b422a] hover:border-[#689660] p-5 transition-all shadow-eco-md hover:shadow-eco-lg flex flex-col justify-between hover:-translate-y-1.5 transform"
+                className="min-w-[85vw] sm:min-w-[320px] lg:min-w-0 snap-center rounded-3xl bg-[#141e15] border-2 border-[#2b422a] hover:border-[#689660] p-5 transition-all shadow-tactile-card shadow-tactile-card-hover flex flex-col justify-between group"
               >
                 <div>
                   {/* Top Image Banner with Rounded Corners */}
@@ -153,7 +158,7 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
                     <img
                       src={zone.image}
                       alt={zone.title}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-2.5 right-2.5">
                       <span className="px-3 py-1 rounded-full bg-[#689660] border border-[#4d7346] text-[10px] font-bold text-white shadow-md uppercase tracking-wider">
@@ -173,17 +178,17 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
                   </div>
 
                   {/* Full Description in Soft Mint-Grey */}
-                  <p className="px-1 text-xs sm:text-sm text-[#c2d6be] leading-relaxed mb-6 font-sans font-normal">
+                  <p className="px-1 text-xs sm:text-sm text-[#c2d6be] leading-relaxed mb-6 font-sans font-medium">
                     {zone.desc}
                   </p>
                 </div>
 
-                {/* Bottom Action Button (White Pill Button with Border & Depth) */}
+                {/* Bottom Action Button (White Pill Button with Border & 3D Depth) */}
                 <div className="pt-2">
                   <button
                     type="button"
                     onClick={() => handleActionClick(zone.viewId)}
-                    className="w-full bg-[#ffffff] text-[#020404] hover:bg-[#689660] hover:text-white border-2 border-[#e2e6d8] hover:border-[#4d7346] py-3.5 px-4 rounded-full text-xs font-bold uppercase tracking-wider transition-all text-center shadow-md flex items-center justify-center space-x-2 transform hover:-translate-y-0.5 active:translate-y-0"
+                    className="w-full bg-[#ffffff] text-[#020404] hover:bg-[#689660] hover:text-white border-2 border-[#e2e6d8] hover:border-[#4d7346] py-3.5 px-4 rounded-full text-xs font-bold uppercase tracking-wider transition-all text-center shadow-tactile-btn flex items-center justify-center space-x-2 transform active:translate-y-0.5"
                   >
                     <span>Launch Capability</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />

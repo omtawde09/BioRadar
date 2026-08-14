@@ -28,19 +28,19 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateView }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfcf0] text-[#020404] font-sans antialiased selection:bg-[#689660] selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between bg-[#fcfcf0] text-[#020404] font-sans antialiased selection:bg-[#689660] selection:text-white">
       {/* Top Modern Eco Navbar */}
       <Navbar onNavigateView={onNavigateView} />
 
       {/* Main Content Sections */}
-      <main>
+      <main className="flex-1 w-full">
         {/* 1. Hero Landing Section */}
         <HeroSection
           onLaunchDemo={handleLaunchDemo}
           onExplorePipeline={handleExplorePipeline}
         />
 
-        {/* 2. Key Metrics Glowing Halos Banner */}
+        {/* 2. Key Metrics 3-Column Showcase (2 Cards Left, Large Kwala Center, 2 Cards Right) */}
         <MetricsBanner />
 
         {/* 3. Restoring Ecology & eDNA Biological Principles */}
@@ -59,7 +59,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateView }) => {
         <IndianEcosystemsSection onNavigateView={onNavigateView} />
       </main>
 
-      {/* Modern Eco Footer */}
+      {/* Modern Eco Footer with Visible Panoramic Landscape */}
       <Footer onNavigateView={onNavigateView} />
     </div>
   );
