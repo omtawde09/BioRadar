@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Droplet, FileCode, CheckCircle2, Sliders, Database, Link, ArrowRight, ChevronRight, Layers, Cpu, ShieldCheck, Sparkles } from 'lucide-react';
+import { Droplet, FileCode, CheckCircle2, Sliders, Database, Link, Sparkles } from 'lucide-react';
+import { PopUp, RiseUp, StaggerContainer, StaggerItem } from './MotionReveal';
 
 export const PipelineFlowchartSection: React.FC = () => {
   const [selectedStage, setSelectedStage] = useState(0);
@@ -110,7 +111,6 @@ export const PipelineFlowchartSection: React.FC = () => {
   ];
 
   const current = stages[selectedStage];
-  const IconComponent = current.icon;
 
   return (
     <section id="pipeline" className="relative bg-[#ffffff] bg-bio-neural py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] font-sans overflow-hidden">
@@ -119,8 +119,8 @@ export const PipelineFlowchartSection: React.FC = () => {
       <div className="absolute bottom-1/3 right-10 w-72 h-72 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Section Heading */}
-        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
+        {/* Section Heading with RiseUp */}
+        <RiseUp className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
           <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#f8fef4] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
             <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
             <span>End-to-End Scientific Architecture</span>
@@ -132,46 +132,47 @@ export const PipelineFlowchartSection: React.FC = () => {
           <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
             A deterministic, peer-reviewed computational pipeline converting raw environmental water samples into verified biodiversity intelligence.
           </p>
-        </div>
+        </RiseUp>
 
-        {/* Interactive Step Selector Bar (Horizontal Flowchart Diagram) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 sm:mb-10">
+        {/* Interactive Step Selector Bar (Horizontal Flowchart Diagram) with Staggered Cascading */}
+        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 sm:mb-10" staggerDelay={0.08}>
           {stages.map((stage, index) => {
             const StageIcon = stage.icon;
             const isSelected = selectedStage === index;
             return (
-              <button
-                key={stage.id}
-                type="button"
-                onClick={() => setSelectedStage(index)}
-                className={`flex flex-col items-center text-center p-3.5 sm:p-4 rounded-2xl border-2 transition-all relative ${
-                  isSelected
-                    ? 'bg-[#f8fef4] border-[#689660] shadow-tactile-card transform -translate-y-1'
-                    : 'bg-[#ffffff] border-[#e2e6d8] hover:border-[#689660] shadow-sm hover:shadow-md'
-                }`}
-              >
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-2 shadow-sm transition-transform ${
+              <StaggerItem key={stage.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStage(index)}
+                  className={`w-full flex flex-col items-center text-center p-3.5 sm:p-4 rounded-2xl border-2 transition-all relative ${
                     isSelected
-                      ? 'bg-[#689660] text-white scale-105'
-                      : 'bg-[#f8fef4] text-[#689660] border border-[#e2e6d8]'
+                      ? 'bg-[#f8fef4] border-[#689660] shadow-tactile-card transform -translate-y-1'
+                      : 'bg-[#ffffff] border-[#e2e6d8] hover:border-[#689660] shadow-sm hover:shadow-md'
                   }`}
                 >
-                  <StageIcon className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] sm:text-[11px] font-normal uppercase tracking-wider text-[#bd3b67] font-heading">
-                  Step 0{stage.id}
-                </span>
-                <span className="text-xs font-bold text-[#020404] line-clamp-1 mt-0.5 font-sans">
-                  {stage.name}
-                </span>
-              </button>
+                  <div
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-2 shadow-sm transition-transform ${
+                      isSelected
+                        ? 'bg-[#689660] text-white scale-105'
+                        : 'bg-[#f8fef4] text-[#689660] border border-[#e2e6d8]'
+                    }`}
+                  >
+                    <StageIcon className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] sm:text-[11px] font-normal uppercase tracking-wider text-[#bd3b67] font-heading">
+                    Step 0{stage.id}
+                  </span>
+                  <span className="text-xs font-bold text-[#020404] line-clamp-1 mt-0.5 font-sans">
+                    {stage.name}
+                  </span>
+                </button>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
 
-        {/* Active Stage Detailed Panel */}
-        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
+        {/* Active Stage Detailed Panel with PopUp Animation */}
+        <PopUp delay={0.2} duration={0.65} className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Stage Summary & Details */}
             <div className="lg:col-span-7 space-y-6">
@@ -253,7 +254,7 @@ export const PipelineFlowchartSection: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </PopUp>
       </div>
     </section>
   );

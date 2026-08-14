@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import Lenis from 'lenis';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { MetricsBanner } from './components/MetricsBanner';
@@ -14,6 +15,36 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigateView }) => {
+  // Initialize Lenis smooth scroll engine
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.8,
+      infinite: false,
+    });
+
+    let rafId: number;
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+
+    rafId = requestAnimationFrame(raf);
+
+    // Expose lenis for smooth programmatic anchor jumps
+    (window as any).bioradarLenis = lenis;
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, []);
+
   const handleLaunchDemo = () => {
     if (onNavigateView) {
       onNavigateView('analyze');
@@ -24,7 +55,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateView }) => {
 
   const handleExplorePipeline = () => {
     const el = document.getElementById('pipeline');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    if (el) {
+      if ((window as any).bioradarLenis) {
+        (window as any).bioradarLenis.scrollTo(el, { offset: -60, duration: 1.2 });
+      } else {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
   };
 
   return (

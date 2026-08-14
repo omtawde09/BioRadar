@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ArrowUpRight, Activity, Map, MessageSquare, AlertTriangle, Satellite, Coins, Sparkles } from 'lucide-react';
+import { PopUp, RiseUp, StaggerContainer, StaggerItem } from './MotionReveal';
 
 interface MultitudeZonesSectionProps {
   onNavigateView?: (viewId: string) => void;
@@ -99,8 +100,8 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
       <div className="absolute bottom-1/4 left-10 w-80 h-80 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Section Header with Green Accent Line */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
+        {/* Section Header with RiseUp */}
+        <RiseUp className="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
           <div>
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
               <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
@@ -139,16 +140,16 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-        </div>
+        </RiseUp>
 
-        {/* Card Grid with Dark Forest Obsidian (#141e15) for High Visual Impact */}
-        <div
-          ref={scrollContainerRef}
+        {/* Card Grid with Staggered Framer Reveal */}
+        <StaggerContainer
+          staggerDelay={0.1}
           className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-4 no-scrollbar lg:grid lg:grid-cols-3 lg:gap-8 lg:overflow-visible lg:pb-0 font-sans"
         >
           {zones.map((zone) => {
             return (
-              <div
+              <StaggerItem
                 key={zone.id}
                 className="min-w-[85vw] sm:min-w-[320px] lg:min-w-0 snap-center rounded-3xl bg-[#141e15] border-2 border-[#2b422a] hover:border-[#689660] p-5 transition-all shadow-tactile-card shadow-tactile-card-hover flex flex-col justify-between group"
               >
@@ -183,7 +184,7 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
                   </p>
                 </div>
 
-                {/* Bottom Action Button (White Pill Button with Border & 3D Depth) */}
+                {/* Bottom Action Button */}
                 <div className="pt-2">
                   <button
                     type="button"
@@ -194,10 +195,10 @@ export const MultitudeZonesSection: React.FC<MultitudeZonesSectionProps> = ({ on
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

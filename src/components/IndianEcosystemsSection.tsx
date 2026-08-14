@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tag, MapPin, ArrowUpRight, Sparkles } from 'lucide-react';
+import { PopUp, RiseUp, StaggerContainer, StaggerItem } from './MotionReveal';
 
 interface IndianEcosystemsSectionProps {
   onNavigateView?: (viewId: string) => void;
@@ -90,8 +91,8 @@ export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = (
       <div className="absolute bottom-1/4 left-10 w-80 h-80 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
+        {/* Section Header with RiseUp */}
+        <RiseUp className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
           <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#689660] text-xs font-bold uppercase tracking-wider text-[#1b5e20] shadow-sm mb-3">
             <Sparkles className="w-3.5 h-3.5 text-[#689660]" />
             <span>Validated Aquatic Baselines</span>
@@ -103,12 +104,15 @@ export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = (
           <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
             Real-world baseline stations benchmarked against National Biodiversity Authority (NBA) conservation priority zones.
           </p>
-        </div>
+        </RiseUp>
 
-        {/* Full-Bleed Immersive Cards Grid with 4px Glowing Borders */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 font-sans">
+        {/* Full-Bleed Immersive Cards Grid with 4px Glowing Borders and Staggered Reveal */}
+        <StaggerContainer
+          staggerDelay={0.1}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 font-sans"
+        >
           {sites.map((site) => (
-            <div
+            <StaggerItem
               key={site.id}
               className="group relative aspect-[9/13] sm:aspect-[9/12] rounded-[30px] overflow-hidden transition-all duration-300 flex flex-col justify-between p-6 border-[4px] border-[#689660] shadow-[0_0_22px_rgba(104,150,96,0.55),0_10px_30px_rgba(0,0,0,0.25)] hover:border-[#82b978] hover:shadow-[0_0_35px_rgba(130,185,120,0.85),0_16px_40px_rgba(0,0,0,0.35)] hover:-translate-y-1.5 transform"
             >
@@ -165,9 +169,9 @@ export const IndianEcosystemsSection: React.FC<IndianEcosystemsSectionProps> = (
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

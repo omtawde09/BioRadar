@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Cpu, Variable, LineChart, Binary, Eye, ShieldAlert, Sparkles } from 'lucide-react';
+import { LineChart, Binary, Eye, ShieldAlert, Sparkles } from 'lucide-react';
+import { PopUp, RiseUp } from './MotionReveal';
 
 export const MathTheorySection: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -76,8 +77,8 @@ export const MathTheorySection: React.FC = () => {
       <div className="absolute bottom-1/4 right-10 w-80 h-80 rounded-full bg-[#bd3b67]/6 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
+        {/* Section Header with RiseUp */}
+        <RiseUp className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
           <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#f8fef4] border-2 border-[#bd3b67] text-xs font-bold uppercase tracking-wider text-[#bd3b67] shadow-sm mb-3">
             <Sparkles className="w-3.5 h-3.5 text-[#bd3b67]" />
             <span>Theoretical Foundations</span>
@@ -89,10 +90,10 @@ export const MathTheorySection: React.FC = () => {
           <p className="text-xs sm:text-base text-[#5a6258] mt-4 font-sans font-medium">
             Rigorous mathematical formulations governing temporal biodiversity forecasting, alignment-free taxonomy, and biosecurity anomaly detection.
           </p>
-        </div>
+        </RiseUp>
 
-        {/* Model Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-8 sm:mb-10 font-sans">
+        {/* Model Tabs with RiseUp */}
+        <RiseUp delay={0.15} className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-8 sm:mb-10 font-sans">
           {models.map((m, idx) => {
             const Icon = m.icon;
             const isSel = activeTab === idx;
@@ -112,10 +113,10 @@ export const MathTheorySection: React.FC = () => {
               </button>
             );
           })}
-        </div>
+        </RiseUp>
 
-        {/* Active Model Deep Dive Box */}
-        <div className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
+        {/* Active Model Deep Dive Box with PopUp */}
+        <PopUp delay={0.25} duration={0.65} className="bg-[#f8fef4] rounded-3xl border-2 border-[#689660] p-6 sm:p-10 shadow-tactile-card">
           <div className="space-y-6">
             <div>
               <span className="text-xs font-bold text-[#bd3b67] uppercase tracking-wider block mb-1 font-sans">
@@ -171,7 +172,7 @@ export const MathTheorySection: React.FC = () => {
               ))}
             </div>
           </div>
-        </div>
+        </PopUp>
       </div>
     </section>
   );

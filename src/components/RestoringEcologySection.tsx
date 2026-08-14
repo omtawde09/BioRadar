@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowRight, Dna, Droplets, Leaf, Microscope, Trees, ShieldCheck, Share2, Activity, Users, Sparkles } from 'lucide-react';
+import { ArrowRight, Dna, Droplets, Leaf, Microscope, Trees, ShieldCheck, Share2, Activity, Users } from 'lucide-react';
+import { PopUp, RiseUp, SlideIn, StaggerContainer, StaggerItem } from './MotionReveal';
 
 export const RestoringEcologySection: React.FC = () => {
   return (
@@ -24,7 +25,7 @@ export const RestoringEcologySection: React.FC = () => {
         {/* ── TOP HERO ROW: Narrative Left + Orbiting Satellite eDNA Visual on Right ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left Column: Theory & Narrative */}
-          <div className="lg:col-span-7 space-y-5">
+          <SlideIn direction="left" delay={0.1} className="lg:col-span-7 space-y-5">
             <div>
               <div className="flex items-center space-x-3 mb-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-[#82b978] font-sans">
@@ -62,29 +63,22 @@ export const RestoringEcologySection: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </a>
             </div>
-          </div>
+          </SlideIn>
 
           {/* Right Column: Circular eDNA Image with Continuously Rotating Satellite Orbit */}
           <div className="lg:col-span-5 flex flex-col items-center justify-center relative py-4">
-            <div className="relative flex items-center justify-center w-72 h-72 sm:w-88 sm:h-88">
+            <PopUp delay={0.2} duration={0.7} className="relative flex items-center justify-center w-72 h-72 sm:w-88 sm:h-88">
               {/* Continuously Rotating Dashed Orbit Ring with Satellite Nodes */}
               <div className="w-full h-full rounded-full border-2 border-dashed border-[#82b978]/60 absolute animate-orbit flex items-center justify-center pointer-events-none">
-                {/* Top Node (12 o'clock): Microscope */}
                 <div className="absolute -top-5 w-11 h-11 rounded-full bg-[#142418] border-2 border-[#82b978] shadow-md flex items-center justify-center text-[#82b978]">
                   <Microscope className="w-5 h-5 text-[#82b978]" />
                 </div>
-
-                {/* Right Node (3 o'clock): DNA */}
                 <div className="absolute -right-5 w-11 h-11 rounded-full bg-[#142418] border-2 border-[#82b978] shadow-md flex items-center justify-center text-[#82b978]">
                   <Dna className="w-5 h-5 text-[#82b978]" />
                 </div>
-
-                {/* Bottom Node (6 o'clock): Leaf */}
                 <div className="absolute -bottom-5 w-11 h-11 rounded-full bg-[#142418] border-2 border-[#82b978] shadow-md flex items-center justify-center text-[#82b978]">
                   <Leaf className="w-5 h-5 text-[#82b978]" />
                 </div>
-
-                {/* Left Node (9 o'clock): Droplet */}
                 <div className="absolute -left-5 w-11 h-11 rounded-full bg-[#142418] border-2 border-[#82b978] shadow-md flex items-center justify-center text-[#82b978]">
                   <Droplets className="w-5 h-5 text-[#82b978]" />
                 </div>
@@ -101,22 +95,22 @@ export const RestoringEcologySection: React.FC = () => {
                   }}
                 />
               </div>
-            </div>
+            </PopUp>
 
             {/* Bottom Label Badge with Border & Shadow */}
-            <div className="mt-6 z-10">
+            <RiseUp delay={0.3} className="mt-6 z-10">
               <span className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#142418] border-2 border-[#82b978] text-xs font-bold text-[#82b978] uppercase tracking-wider font-sans shadow-md">
                 <span className="w-2 h-2 rounded-full bg-[#82b978] animate-pulse" />
                 <span>ENVIRONMENTAL DNA (eDNA)</span>
               </span>
-            </div>
+            </RiseUp>
           </div>
         </div>
 
-        {/* ── MIDDLE ROW: 3 Distinct Feature Metric Cards in Dark Obsidian Luxury ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1: 3,500+ Native Taxa (Green Theme) */}
-          <div className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#82b978] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
+        {/* ── MIDDLE ROW: 3 Distinct Feature Metric Cards with Stagger ── */}
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6" staggerDelay={0.12}>
+          {/* Card 1: 3,500+ Native Taxa */}
+          <StaggerItem className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#82b978] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
             <div className="absolute right-0 bottom-0 w-32 h-32 opacity-10 pointer-events-none text-[#82b978]">
               <Trees className="w-full h-full" />
             </div>
@@ -136,7 +130,6 @@ export const RestoringEcologySection: React.FC = () => {
               </p>
             </div>
 
-            {/* Progress Metric Bar */}
             <div className="pt-4 border-t border-[#2b422a]">
               <div className="flex items-center justify-between text-[11px] font-bold text-[#e2ecd0] mb-1.5 font-sans">
                 <span>BIODIVERSITY COVERAGE</span>
@@ -146,10 +139,10 @@ export const RestoringEcologySection: React.FC = () => {
                 <div className="h-full rounded-full bg-[#82b978] transition-all duration-1000" style={{ width: '98%' }} />
               </div>
             </div>
-          </div>
+          </StaggerItem>
 
-          {/* Card 2: 6 Baselines Cataloged Systems (Teal Ocean Theme) */}
-          <div className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#2a7b88] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
+          {/* Card 2: 6 Baselines Cataloged Systems */}
+          <StaggerItem className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#2a7b88] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
             <div className="absolute right-0 bottom-0 w-32 h-32 opacity-10 pointer-events-none text-[#2a7b88]">
               <Droplets className="w-full h-full" />
             </div>
@@ -169,7 +162,6 @@ export const RestoringEcologySection: React.FC = () => {
               </p>
             </div>
 
-            {/* Progress Metric Bar */}
             <div className="pt-4 border-t border-[#2b422a]">
               <div className="flex items-center justify-between text-[11px] font-bold text-[#e2ecd0] mb-1.5 font-sans">
                 <span>HABITAT SYSTEMS COVERED</span>
@@ -179,10 +171,10 @@ export const RestoringEcologySection: React.FC = () => {
                 <div className="h-full rounded-full bg-[#2a7b88] transition-all duration-1000" style={{ width: '92%' }} />
               </div>
             </div>
-          </div>
+          </StaggerItem>
 
-          {/* Card 3: 1.9X Surveillance Density (Berry Pink Theme) */}
-          <div className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#bd3b67] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
+          {/* Card 3: 1.9X Surveillance Density */}
+          <StaggerItem className="relative rounded-3xl bg-[#142418] border-2 border-[#2b422a] hover:border-[#bd3b67] p-6 shadow-tactile-card shadow-tactile-card-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group">
             <div className="absolute right-0 bottom-0 w-32 h-32 opacity-10 pointer-events-none text-[#bd3b67]">
               <Activity className="w-full h-full" />
             </div>
@@ -202,7 +194,6 @@ export const RestoringEcologySection: React.FC = () => {
               </p>
             </div>
 
-            {/* Progress Metric Bar */}
             <div className="pt-4 border-t border-[#2b422a]">
               <div className="flex items-center justify-between text-[11px] font-bold text-[#e2ecd0] mb-1.5 font-sans">
                 <span>DETECTION EFFICIENCY</span>
@@ -212,88 +203,90 @@ export const RestoringEcologySection: React.FC = () => {
                 <div className="h-full rounded-full bg-[#bd3b67] transition-all duration-1000" style={{ width: '89%' }} />
               </div>
             </div>
+          </StaggerItem>
+        </StaggerContainer>
+
+        {/* ── BOTTOM ROW: 5-Pill Value Highlights Ribbon with RiseUp ── */}
+        <RiseUp delay={0.15}>
+          <div className="rounded-3xl bg-[#142418] border-2 border-[#2b422a] p-5 sm:p-6 shadow-tactile-card">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-[#2b422a]">
+              {/* Pill 1 */}
+              <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-2">
+                <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
+                  <Leaf className="w-5 h-5 text-[#82b978]" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
+                    eDNA-POWERED INSIGHTS
+                  </div>
+                  <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
+                    Uncover hidden biodiversity with molecular precision.
+                  </div>
+                </div>
+              </div>
+
+              {/* Pill 2 */}
+              <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
+                  <ShieldCheck className="w-5 h-5 text-[#82b978]" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
+                    EARLY WARNING SYSTEMS
+                  </div>
+                  <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
+                    Detect threats before they impact ecosystems.
+                  </div>
+                </div>
+              </div>
+
+              {/* Pill 3 */}
+              <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
+                  <Share2 className="w-5 h-5 text-[#82b978]" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
+                    DATA-DRIVEN DECISIONS
+                  </div>
+                  <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
+                    Actionable intelligence for conservation.
+                  </div>
+                </div>
+              </div>
+
+              {/* Pill 4 */}
+              <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
+                  <Activity className="w-5 h-5 text-[#82b978]" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
+                    CONTINUOUS MONITORING
+                  </div>
+                  <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
+                    Real-time surveillance for a resilient planet.
+                  </div>
+                </div>
+              </div>
+
+              {/* Pill 5 */}
+              <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
+                  <Users className="w-5 h-5 text-[#82b978]" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
+                    COLLABORATIVE SCIENCE
+                  </div>
+                  <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
+                    Working together for biodiversity restoration.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* ── BOTTOM ROW: 5-Pill Value Highlights Ribbon ── */}
-        <div className="rounded-3xl bg-[#142418] border-2 border-[#2b422a] p-5 sm:p-6 shadow-tactile-card">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-[#2b422a]">
-            {/* Pill 1 */}
-            <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-2">
-              <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
-                <Leaf className="w-5 h-5 text-[#82b978]" />
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
-                  eDNA-POWERED INSIGHTS
-                </div>
-                <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
-                  Uncover hidden biodiversity with molecular precision.
-                </div>
-              </div>
-            </div>
-
-            {/* Pill 2 */}
-            <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
-                <ShieldCheck className="w-5 h-5 text-[#82b978]" />
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
-                  EARLY WARNING SYSTEMS
-                </div>
-                <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
-                  Detect threats before they impact ecosystems.
-                </div>
-              </div>
-            </div>
-
-            {/* Pill 3 */}
-            <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
-                <Share2 className="w-5 h-5 text-[#82b978]" />
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
-                  DATA-DRIVEN DECISIONS
-                </div>
-                <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
-                  Actionable intelligence for conservation.
-                </div>
-              </div>
-            </div>
-
-            {/* Pill 4 */}
-            <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
-                <Activity className="w-5 h-5 text-[#82b978]" />
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
-                  CONTINUOUS MONITORING
-                </div>
-                <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
-                  Real-time surveillance for a resilient planet.
-                </div>
-              </div>
-            </div>
-
-            {/* Pill 5 */}
-            <div className="flex items-center space-x-3 pt-3 sm:pt-0 sm:px-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#09140c] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shrink-0 shadow-sm">
-                <Users className="w-5 h-5 text-[#82b978]" />
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] font-sans">
-                  COLLABORATIVE SCIENCE
-                </div>
-                <div className="text-[10px] text-[#a8c4a4] leading-tight font-sans font-medium">
-                  Working together for biodiversity restoration.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </RiseUp>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dna, Shield, ArrowUpRight, Upload, Activity, FileText, BarChart2, Bell, Settings } from 'lucide-react';
+import { PopUp, RiseUp, SlideIn } from './MotionReveal';
 
 interface FooterProps {
   onNavigateView?: (viewId: string) => void;
@@ -26,7 +27,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateView }) => {
         {/* Main Footer Row: Left Side (Brand & Theory) | Right Side (Platform Tools & Governance) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-8 items-start">
           {/* ══ LEFT SIDE: Brand, Mission & Theory Links (Col span 6) ══ */}
-          <div className="lg:col-span-6 space-y-5">
+          <SlideIn direction="left" delay={0.1} className="lg:col-span-6 space-y-5">
             {/* Brand Logo & Mission */}
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
@@ -86,10 +87,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateView }) => {
                 </a>
               </div>
             </div>
-          </div>
+          </SlideIn>
 
           {/* ══ RIGHT SIDE: Platform Tools on the Right Side (Col span 6) ══ */}
-          <div className="lg:col-span-6 space-y-4">
+          <SlideIn direction="right" delay={0.15} className="lg:col-span-6 space-y-4">
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-[#ffffff] mb-3 font-heading border-b-2 border-[#82b978] pb-1 inline-block drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                 Platform Tools
@@ -178,11 +179,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateView }) => {
               </div>
               <span className="w-2 h-2 rounded-full bg-[#82b978] animate-pulse" />
             </div>
-          </div>
+          </SlideIn>
         </div>
 
         {/* ── CLEAN BOTTOM COMPLIANCE BAR IN HIGH-CONTRAST WHITE ── */}
-        <div className="pt-4 border-t-2 border-white/25 flex flex-col sm:flex-row items-center justify-between text-xs text-[#ffffff] font-bold gap-3 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+        <RiseUp delay={0.2} className="pt-4 border-t-2 border-white/25 flex flex-col sm:flex-row items-center justify-between text-xs text-[#ffffff] font-bold gap-3 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
           <div>
             &copy; 2026 BioRadar. eDNA Biodiversity Intelligence for Indian Waters.
           </div>
@@ -197,7 +198,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateView }) => {
               <span>WCAG 2.1 AA Accessible</span>
             </span>
           </div>
-        </div>
+        </RiseUp>
       </div>
     </footer>
   );
