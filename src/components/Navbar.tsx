@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Home,
   Upload,
@@ -24,6 +25,68 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
   const { currentLang, setLanguage, t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Navbar is transparent while the hero section fills the viewport, then turns
+  // solid once the user scrolls past it (so the light content below stays
+  // readable behind the bar). The mobile menu always forces the solid look.
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const navHeight = 76;
+
+    const compute = () => {
+      const hero = document.getElementById('hero');
+      // Switch a touch before the hero fully leaves, so the bar is opaque by
+      // the time cream-coloured content reaches it.
+      const threshold = hero ? hero.offsetHeight - navHeight : 120;
+      const lenis = (window as any).bioradarLenis;
+      const y =
+        lenis && typeof lenis.scroll === 'number'
+          ? lenis.scroll
+          : window.scrollY || document.documentElement.scrollTop || 0;
+      // React bails out when the boolean is unchanged, so calling this on every
+      // scroll frame is cheap.
+      setScrolled(y > threshold);
+    };
+
+    compute();
+    // Native scroll covers plain scrolling; Lenis (smooth scroll) suppresses the
+    // native event and emits its own instead, so subscribe to that too.
+    window.addEventListener('scroll', compute, { passive: true });
+    window.addEventListener('resize', compute);
+
+    // Lenis is created by the parent HomePage effect, which runs after this
+    // child mounts — so poll briefly until it is available, then subscribe.
+    let lenis: any = null;
+    const attach = () => {
+      const inst = (window as any).bioradarLenis;
+      if (inst && typeof inst.on === 'function') {
+        lenis = inst;
+        lenis.on('scroll', compute);
+        compute();
+        return true;
+      }
+      return false;
+    };
+    let pollId = 0;
+    let stopId = 0;
+    if (!attach()) {
+      pollId = window.setInterval(() => {
+        if (attach()) window.clearInterval(pollId);
+      }, 100);
+      stopId = window.setTimeout(() => window.clearInterval(pollId), 5000);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', compute);
+      window.removeEventListener('resize', compute);
+      window.clearInterval(pollId);
+      window.clearTimeout(stopId);
+      if (lenis && typeof lenis.off === 'function') lenis.off('scroll', compute);
+    };
+  }, []);
+
+  const solid = scrolled || mobileMenuOpen;
+
   const handleToggleLang = (lang: Language) => {
     setLanguage(lang);
   };
@@ -37,24 +100,58 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
     }
   };
 
-  return (
+  // Render the fixed bar as a direct child of <body> via a portal. Inside the
+  // app shell, `position: fixed` is trapped by an ancestor that establishes a
+  // containing block (Lenis/framer-motion interaction), so the bar would scroll
+  // away with the page. Portaling to <body> pins it to the viewport reliably.
+  // React context (i18n) still flows through the portal from the component tree.
+  const bar = (
     <header
       id="bioradar-navbar"
-      className="fixed top-0 left-0 right-0 z-[100] w-full bg-[#09140c]/92 backdrop-blur-xl border-b-2 border-[#1e3320] shadow-[0_4px_30px_rgba(0,0,0,0.6)] font-sans pointer-events-auto py-2 transition-all duration-300"
+      data-solid={solid}
+      className="fixed top-0 left-0 right-0 z-[100] w-full font-sans pointer-events-auto py-1 transition-all duration-500"
+      style={
+        solid
+          ? {
+              backgroundColor: 'rgba(9, 20, 12, 0.92)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderBottom: '2px solid #1e3320',
+              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.6)',
+            }
+          : {
+              backgroundColor: 'transparent',
+              backdropFilter: 'blur(0px)',
+              WebkitBackdropFilter: 'blur(0px)',
+              borderBottom: '2px solid transparent',
+              boxShadow: 'none',
+            }
+      }
     >
+      {/* Soft top-down scrim only while transparent, so nav text stays legible
+          over the brightest frames of the hero video without a visible bar. */}
+      {!solid && (
+        <div
+          className="absolute inset-0 -z-10 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.12) 55%, transparent)',
+          }}
+        />
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="flex items-center justify-between h-12 sm:h-14">
           {/* ══ Brand Logo & Name ══ */}
           <div
             className="flex items-center space-x-2.5 sm:space-x-3 cursor-pointer group shrink-0"
             onClick={() => handleNavClick('#home', 'home')}
           >
-            <div className="w-10 h-10 rounded-2xl bg-[#142418] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shadow-md group-hover:scale-105 group-hover:border-[#a8d89e] transition-all">
-              <Dna className="w-5 h-5 text-[#82b978] group-hover:text-white transition-colors" />
+            <div className="w-9 h-9 rounded-xl bg-[#142418] border-2 border-[#82b978] flex items-center justify-center text-[#82b978] shadow-md group-hover:scale-105 group-hover:border-[#a8d89e] transition-all">
+              <Dna className="w-[18px] h-[18px] text-[#82b978] group-hover:text-white transition-colors" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-xl sm:text-2xl font-normal tracking-wide text-white font-heading group-hover:text-[#82b978] transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                <span className="text-lg sm:text-xl font-normal tracking-wide text-white font-heading group-hover:text-[#82b978] transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                   {t('app.title')}
                 </span>
                 <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-[#142418] border border-[#82b978] text-[#82b978] font-bold shadow-sm">
@@ -68,9 +165,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
           </div>
 
           {/* ══ DESKTOP TOP NAVBAR (Laptops & Computers: lg & xl) ══ */}
-          <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3">
+          <nav className="hidden lg:flex items-center space-x-4 xl:space-x-6">
             {/* Section Anchors for Quick Scrolling on Home */}
-            <div className="flex items-center space-x-1 text-xs font-bold text-white">
+            <div className="flex items-center space-x-3 xl:space-x-4 text-xs font-bold text-white">
               <a
                 href="#theory"
                 className="nav-link-underline text-white/90 hover:text-[#82b978]"
@@ -103,96 +200,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
               </a>
             </div>
 
-            {/* Subtle Vertical Divider */}
-            <div className="h-6 w-px bg-[#2b422a] mx-1" />
-
-            {/* ══ Platform Pages Capsule (All 7 Pages) with Animated Underline Hover Effect ══ */}
-            <div className="flex items-center space-x-1 bg-[#142418] px-2.5 py-1 rounded-full border-2 border-[#2b422a] shadow-inner">
-              <button
-                type="button"
-                onClick={() => handleNavClick('#home', 'home')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'home' ? 'active' : 'text-white'
-                }`}
-                title="Home & Ecological Overview"
-              >
-                <Home className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.home')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#analyze', 'analyze')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'analyze' ? 'active' : 'text-white'
-                }`}
-                title="Upload & analyze FASTQ sequencing datasets"
-              >
-                <Upload className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.analyze')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#monitor', 'monitor')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'monitor' ? 'active' : 'text-white'
-                }`}
-                title="Live workflow execution monitor & logs"
-              >
-                <Activity className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.monitor')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#results', 'results')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'results' ? 'active' : 'text-white'
-                }`}
-                title="Taxonomic community composition & GIS map"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.results')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#compare', 'compare')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'compare' ? 'active' : 'text-white'
-                }`}
-                title="Multi-site comparative radar & biodiversity indices"
-              >
-                <BarChart2 className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.compare')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#alerts', 'alerts')}
-                className={`nav-link-underline nav-link-underline-rose text-xs font-bold ${
-                  activeView === 'alerts' ? 'active' : 'text-white'
-                }`}
-                title="Invasive species anomaly alerts & biosecurity"
-              >
-                <Bell className="w-3.5 h-3.5 text-[#e66a93]" />
-                <span>{t('nav.alerts')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('#settings', 'settings')}
-                className={`nav-link-underline text-xs font-bold ${
-                  activeView === 'settings' ? 'active' : 'text-white'
-                }`}
-                title="System settings & pipeline configurations"
-              >
-                <Settings className="w-3.5 h-3.5 text-[#82b978]" />
-                <span>{t('nav.settings')}</span>
-              </button>
-            </div>
-
             {/* ══ Prominent Hindi / English Language Toggle Pill for Laptops & Computers ══ */}
             <div className="inline-flex p-0.5 rounded-full bg-[#142418] border-2 border-[#82b978] shadow-md items-center space-x-0.5 ml-1">
               <Globe className="w-3.5 h-3.5 text-[#82b978] ml-2 mr-0.5" />
@@ -223,6 +230,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
                 हिन्दी
               </button>
             </div>
+
+            {/* Primary CTA into the platform. Individual app views (analyze,
+                monitor, results, …) live in the in-app navigation and the mobile
+                menu, so the landing bar stays uncluttered. */}
+            <button
+              type="button"
+              onClick={() => handleNavClick('#analyze', 'analyze')}
+              className="inline-flex items-center space-x-1.5 bg-[#689660] hover:bg-[#588051] text-white border border-[#82b978] px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-md active:translate-y-0.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{t('nav.launch', 'Launch Platform')}</span>
+            </button>
           </nav>
 
           {/* ══ MOBILE COMPACT HEADER (Only for screens < lg) ══ */}
@@ -388,4 +407,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateView, activeView = 'ho
       )}
     </header>
   );
+
+  return typeof document !== 'undefined' ? createPortal(bar, document.body) : bar;
 };

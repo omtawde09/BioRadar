@@ -141,13 +141,14 @@
   }
 
   function currentTheme() {
-    return document.documentElement.getAttribute("data-theme") || "dark";
+    return document.documentElement.getAttribute("data-theme") || "light";
   }
 
   function restoreTheme() {
     var saved = null;
     try { saved = localStorage.getItem("bioradar.theme"); } catch (e) { /* private mode */ }
-    applyTheme(saved === "light" ? "light" : "dark");
+    // Light is the default look now; dark is opt-in via the toggle.
+    applyTheme(saved === "dark" ? "dark" : "light");
   }
 
   /* ── Shell ────────────────────────────────────────────────────────── */

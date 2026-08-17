@@ -80,4 +80,7 @@ data/verifications.jsonl
 # a click in the app turning into a committed source change.
 data/.hidden_datasets.json
 
+# Node dependencies for the landing-page build toolchain (esbuild + tailwind).
+# The built artifacts live in bioradar/webapp_static/; node_modules is only
+# needed to rebuild them from src/ and should never be committed.
 node_modules/

@@ -8,11 +8,9 @@
     "build:assets": "node -e \"const fs=require('fs'),path=require('path');const src='src/assets',dst='bioradar/webapp_static/assets',dstRoot='bioradar/webapp_static';if(fs.existsSync(src)){if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>{fs.copyFileSync(path.join(src,f),path.join(dst,f));fs.copyFileSync(path.join(src,f),path.join(dstRoot,f));});}\"",
     "build:css": "tailwindcss -i src/styles/home.css -o bioradar/webapp_static/home.css --minify",
     "build:home": "esbuild src/home-entry.tsx --bundle --minify --format=iife --global-name=BioRadarHomeBundle --outfile=bioradar/webapp_static/home-bundle.js --define:process.env.NODE_ENV=\\\"production\\\"",
-    "build:agentation": "esbuild src/agentation-entry.tsx --bundle --minify --format=iife --global-name=AgentationOverlay --outfile=bioradar/webapp_static/agentation-overlay.js --define:process.env.NODE_ENV=\\\"development\\\"",
-    "build": "npm run build:assets && npm run build:css && npm run build:home && npm run build:agentation"
+    "build": "npm run build:assets && npm run build:css && npm run build:home"
   },
   "dependencies": {
-    "agentation": "^3.0.2",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.0",
     "lenis": "^1.3.26",

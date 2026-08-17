@@ -26,6 +26,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExplorePipeline, onL
 
   return (
     <section
+      id="hero"
       className="relative w-full min-h-[100dvh] sm:min-h-[92vh] flex items-center justify-center pt-24 sm:pt-36 pb-16 sm:pb-28 px-4 sm:px-6 lg:px-8 border-b-2 border-[#e2e6d8] bg-black font-sans overflow-hidden"
     >
       {/* ── Direct Background Video (Zero Background Color Flashes or Jerks) ── */}
@@ -49,9 +50,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExplorePipeline, onL
         </video>
       </div>
 
-      {/* Subtle Bio-Neural & Marine Wave Background Textures */}
-      <div className="absolute inset-0 bg-bio-neural opacity-35 pointer-events-none z-[1]" />
-      <div className="absolute inset-0 bg-marine-waves opacity-25 pointer-events-none z-[1]" />
+      {/* Legibility scrim: keeps headings readable over the moving video while
+          leaving the footage clearly visible. Darkens the very top (behind the
+          transparent navbar) and the center band behind the copy. */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.18) 45%, rgba(0, 0, 0, 0.45))',
+        }}
+      />
+
+      {/* Subtle Bio-Neural & Marine Wave Background Textures (kept light so the
+          video reads as motion, not a busy static overlay) */}
+      <div className="absolute inset-0 bg-bio-neural opacity-[0.18] pointer-events-none z-[1]" />
+      <div className="absolute inset-0 bg-marine-waves opacity-[0.12] pointer-events-none z-[1]" />
 
       {/* Floating Animated Ambient Bio-Glow Spheres */}
       <div className="absolute top-1/4 left-10 w-64 h-64 rounded-full bg-[#689660]/18 blur-3xl pointer-events-none animate-bio-float z-[1]" />

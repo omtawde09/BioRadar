@@ -19,48 +19,49 @@
    sunlight, kinder to OLED battery). Light is opt-in via [data-theme].     */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Surfaces. In neumorphism the element and its parent share a colour —
-     the shadow makes the shape, never a fill difference. */
-  --surface-base:     #2d3448;
-  --surface-raised:   #2d3448;
-  --surface-pressed:  #2d3448;
-  --surface-overlay:  #364056;
-  --surface-chart:    #364056;   /* charts need their own ground */
+  /* ── Modern flat theme (light, eco-green brand). Unlike the previous
+     neumorphism, surfaces separate by FILL — a soft ground with white raised
+     cards — and elevation is a single soft shadow, not a double one. ── */
+  --surface-base:     #eef2ea;   /* app ground, faint green-grey */
+  --surface-raised:   #ffffff;   /* cards, bars, inputs, menus */
+  --surface-pressed:  #e6ece1;   /* pressed / active wells */
+  --surface-overlay:  #ffffff;   /* modals, popovers */
+  --surface-chart:    #ffffff;   /* charts need their own ground */
 
-  /* Shadow colours. Tinted, never pure white or pure black — that is what
-     separates a designed dark mode from an inverted one. */
-  --shadow-light:        #364056;
-  --shadow-dark:         #1a1f2e;
-  --shadow-light-strong: #3d4860;
-  --shadow-dark-strong:  #151926;
+  /* Kept for the handful of rules that still reference these directly. */
+  --shadow-light:        #ffffff;
+  --shadow-dark:         rgba(20, 40, 15, .12);
+  --shadow-light-strong: #ffffff;
+  --shadow-dark-strong:  rgba(20, 40, 15, .18);
 
-  /* Accents — flat, high-saturation, for interaction and alerts only. */
-  --accent-primary:  #8b83ff;
-  --accent-hover:    #a29bff;
-  --accent-pressed:  #6c63ff;
-  --accent-ink:      #14172a;   /* text on top of the accent */
+  /* Accents — the landing page's eco-green, with its magenta as secondary. */
+  --accent-primary:   #689660;
+  --accent-hover:     #588051;
+  --accent-pressed:   #4d7346;
+  --accent-ink:       #ffffff;   /* text on top of the accent */
+  --accent-secondary: #bd3b67;   /* landing magenta, for secondary CTAs */
+  --accent-soft:      #eaf1e8;   /* tint fill for hover / active chrome */
 
-  --alert-invasive:  #ff6b5b;
-  --alert-rare:      #ffb648;
-  --alert-healthy:   #3ddc84;
-  --alert-neutral:   #95a5a6;
+  --alert-invasive:  #d5405f;
+  --alert-rare:      #e0912f;
+  --alert-healthy:   #2f9e5b;
+  --alert-neutral:   #8a95a0;
 
-  --text-primary:    #e0e5ec;
-  --text-secondary:  #9caebf;
-  --text-disabled:   #6b7689;
+  --text-primary:    #17240f;
+  --text-secondary:  #566150;
+  --text-disabled:   #9aa694;
 
-  --border-hairline: rgba(224, 229, 236, .14);
+  --border-hairline: rgba(20, 40, 15, .10);
 
-  /* The 5 shadow tokens. Five. Inventing a sixth mid-build is the single
-     most reliable way to make a neumorphic UI look improvised.
-     Light source is TOP-LEFT, always: light offset negative, dark positive. */
-  --neu-raised:    6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
-  --neu-raised-lg: 10px 10px 20px var(--shadow-dark), -10px -10px 20px var(--shadow-light);
-  --neu-raised-sm: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
-  --neu-pressed:   inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
-  --neu-input:     inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
+  /* Modern elevation — one soft shadow set, single light source from above.
+     No inset+outset pair, so nothing reads as extruded plastic. */
+  --neu-raised:    0 1px 2px rgba(20, 40, 15, .04), 0 8px 20px -6px rgba(20, 40, 15, .10);
+  --neu-raised-lg: 0 2px 6px rgba(20, 40, 15, .05), 0 20px 38px -10px rgba(20, 40, 15, .14);
+  --neu-raised-sm: 0 1px 2px rgba(20, 40, 15, .06);
+  --neu-pressed:   inset 0 1px 3px rgba(20, 40, 15, .10);
+  --neu-input:     inset 0 1px 2px rgba(20, 40, 15, .08);
 
   /* Radius. Never 50% on a neumorphic surface — a pill breaks the extrusion. */
   --radius-sm: 8px;
@@ -95,54 +96,65 @@
   --sidebar-w: 72px;
   --panel-w:   380px;
   --tabbar-h:  56px;
+  --content-max: 1400px;   /* centered content column on wide screens */
 
   /* Okabe-Ito categorical — designed for colour-blind accessibility.
      The 8th is black in the original; in dark mode that is invisible, so it
      becomes near-white. Same role, same separation, still CUD-safe. */
   --cat-1: #E69F00; --cat-2: #56B4E9; --cat-3: #009E73; --cat-4: #F0E442;
-  --cat-5: #0072B2; --cat-6: #D55E00; --cat-7: #CC79A7; --cat-8: #E6E6E6;
+  --cat-5: #0072B2; --cat-6: #D55E00; --cat-7: #CC79A7; --cat-8: #1a1a1a;
 
   /* Viridis — perceptually uniform, colour-blind safe, survives greyscale. */
   --seq-1: #440154; --seq-2: #414487; --seq-3: #2a788e;
   --seq-4: #22a884; --seq-5: #7ad151; --seq-6: #fde725;
 
   /* ColorBrewer YlOrRd — the heat metaphor, for density only. */
-  --heat-1: #ffffb2; --heat-2: #fecc5c; --heat-3: #fd8d3c;
+  --heat-1: #ffeda0; --heat-2: #fecc5c; --heat-3: #fd8d3c;
   --heat-4: #f03b20; --heat-5: #bd0026;
 }
 
-[data-theme="light"] {
-  color-scheme: light;
+/* Modern dark eco-green — opt-in via the sun/moon toggle. Deep green-black
+   ground, distinctly elevated cards, soft dark elevation. */
+[data-theme="dark"] {
+  color-scheme: dark;
 
-  --surface-base:     #e0e5ec;
-  --surface-raised:   #e0e5ec;
-  --surface-pressed:  #e0e5ec;
-  --surface-overlay:  #ffffff;
-  --surface-chart:    #ffffff;
+  --surface-base:     #0f1710;
+  --surface-raised:   #17251a;
+  --surface-pressed:  #101c13;
+  --surface-overlay:  #1c2d20;
+  --surface-chart:    #121d15;
 
-  --shadow-light:        #ffffff;
-  --shadow-dark:         #a3b1c6;
-  --shadow-light-strong: #ffffff;
-  --shadow-dark-strong:  #9caebf;
+  --shadow-light:        rgba(255, 255, 255, .04);
+  --shadow-dark:         rgba(0, 0, 0, .5);
+  --shadow-light-strong: rgba(255, 255, 255, .06);
+  --shadow-dark-strong:  rgba(0, 0, 0, .6);
 
-  --accent-primary:  #6c63ff;
-  --accent-hover:    #5a51e0;
-  --accent-pressed:  #4a42c0;
-  --accent-ink:      #ffffff;
+  --accent-primary:   #82b978;
+  --accent-hover:     #98cc8e;
+  --accent-pressed:   #6ba861;
+  --accent-ink:       #0c140a;
+  --accent-secondary: #e0699a;
+  --accent-soft:      rgba(130, 185, 120, .14);
 
-  --alert-invasive:  #e74c3c;
-  --alert-rare:      #f39c12;
-  --alert-healthy:   #27ae60;
-  --alert-neutral:   #95a5a6;
+  --alert-invasive:  #ff6b7d;
+  --alert-rare:      #ffb648;
+  --alert-healthy:   #46d888;
+  --alert-neutral:   #8a95a0;
 
-  --text-primary:    #2d3448;
-  --text-secondary:  #646c7c;
-  --text-disabled:   #a3b1c6;
+  --text-primary:    #e6efe2;
+  --text-secondary:  #9db095;
+  --text-disabled:   #5f6d58;
 
-  --border-hairline: rgba(45, 52, 72, .12);
+  --border-hairline: rgba(230, 239, 226, .10);
 
-  --cat-8: #1a1a1a;
-  --heat-1: #ffeda0;
+  --neu-raised:    0 1px 2px rgba(0, 0, 0, .3), 0 10px 26px -6px rgba(0, 0, 0, .5);
+  --neu-raised-lg: 0 2px 8px rgba(0, 0, 0, .35), 0 26px 44px -10px rgba(0, 0, 0, .55);
+  --neu-raised-sm: 0 1px 3px rgba(0, 0, 0, .4);
+  --neu-pressed:   inset 0 1px 3px rgba(0, 0, 0, .5);
+  --neu-input:     inset 0 1px 3px rgba(0, 0, 0, .45);
+
+  --cat-8: #E6E6E6;
+  --heat-1: #ffffb2;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */
@@ -175,7 +187,18 @@ a  { color: var(--accent-primary); }
 .mono { font-family: var(--font-mono); font-size: var(--text-xs); }
 .muted { color: var(--text-secondary); }
 .hint { color: var(--text-secondary); font-size: var(--text-sm); }
-.hidden { display: none !important; }
+/* app.css `.hidden` force-hides shell chrome (the offline banner, drawers, …).
+   The Tailwind landing page — everything inside #view-home, plus its navbar
+   which is portaled to <body> — has its own `.hidden` + responsive
+   `lg:flex`/`sm:block` toggles. Exclude those two contexts only: otherwise this
+   `!important` rule defeats the responsive nav, while still force-hiding shell
+   chrome that Tailwind's plain `.hidden` cannot beat over a component's own
+   display (which is what leaked the amber offline banner onto the home view). */
+.hidden:not(#view-home .hidden):not(#bioradar-navbar .hidden) { display: none !important; }
+
+/* The landing navbar is portaled to <body>, so hide it whenever the app is not
+   on the home view — otherwise it overlaps the dashboard appbar. */
+body:not(.on-home-view) #bioradar-navbar { display: none !important; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
@@ -212,9 +235,9 @@ a  { color: var(--accent-primary); }
   position: sticky; top: 0; z-index: 40;
   height: var(--appbar-h);
   display: flex; align-items: center; gap: var(--space-4);
-  padding: 0 var(--space-4);
-  background: var(--surface-base);
-  box-shadow: var(--neu-raised);
+  padding: 0 max(var(--space-4), calc((100% - var(--content-max)) / 2));
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-hairline);
 }
 
 .brand { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
@@ -299,13 +322,11 @@ a  { color: var(--accent-primary); }
 
 .shell { display: flex; align-items: stretch; min-height: calc(100vh - var(--appbar-h)); }
 
+/* The left rail is retired: navigation now lives entirely in the top appbar
+   (desktop) and the bottom tabbar (mobile), so the workspace gets the full
+   width. The element is still populated by the registry but never shown. */
 .sidebar {
-  width: var(--sidebar-w); flex: none;
-  padding: var(--space-4) var(--space-2);
-  display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--surface-base);
-  box-shadow: var(--neu-raised);
-  z-index: 30;
+  display: none;
 }
 
 .nav-item {
@@ -315,18 +336,17 @@ a  { color: var(--accent-primary); }
   width: 100%; min-height: 56px;
   padding: var(--space-2) var(--space-1);
   border: 0; border-radius: var(--radius-md);
-  background: var(--surface-raised); color: var(--text-secondary);
-  box-shadow: var(--neu-raised-sm);
+  background: transparent; color: var(--text-secondary);
   font: inherit; font-size: 10px; font-weight: 600;
   letter-spacing: .02em; text-transform: uppercase;
   cursor: pointer;
-  transition: box-shadow var(--dur-hover) var(--ease-out),
+  transition: background-color var(--dur-hover) var(--ease-out),
               color var(--dur-hover) var(--ease-out);
 }
 .nav-item svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; }
-.nav-item:hover { box-shadow: var(--neu-raised); color: var(--text-primary); }
-.nav-item:active { box-shadow: var(--neu-pressed); }
-.nav-item[aria-current="page"] { box-shadow: var(--neu-pressed); color: var(--accent-primary); }
+.nav-item:hover { background: var(--accent-soft); color: var(--text-primary); }
+.nav-item:active { background: var(--accent-soft); }
+.nav-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent-primary); font-weight: 700; }
 .nav-badge {
   position: absolute; top: 5px; right: 8px;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -337,7 +357,7 @@ a  { color: var(--accent-primary); }
 
 .workspace {
   flex: 1 1 auto; min-width: 0;
-  padding: var(--space-6);
+  padding: var(--space-8) max(var(--space-6), calc((100% - var(--content-max)) / 2));
   display: flex; flex-direction: column; gap: var(--space-6);
 }
 .view { display: none; flex-direction: column; gap: var(--space-6); }
@@ -346,10 +366,11 @@ a  { color: var(--accent-primary); }
 .view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .view-head p { margin: var(--space-1) 0 0; color: var(--text-secondary); max-width: 68ch; }
 
-/* ── Card (neumorphic, extruded) ───────────────────────────────────────── */
+/* ── Card (flat, softly elevated) ──────────────────────────────────────── */
 
 .card {
   background: var(--surface-raised);
+  border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   box-shadow: var(--neu-raised);
   padding: var(--space-4);
@@ -357,14 +378,26 @@ a  { color: var(--accent-primary); }
 .card.lg { border-radius: var(--radius-xl); box-shadow: var(--neu-raised-lg); padding: var(--space-6); }
 .card.sm { border-radius: var(--radius-md); box-shadow: var(--neu-raised-sm); padding: var(--space-3); }
 
-.card.interactive { cursor: pointer; transition: box-shadow var(--dur-card) var(--ease-out); }
-.card.interactive:hover { box-shadow: var(--neu-raised-lg); }
-.card.interactive:active { box-shadow: var(--neu-pressed); }
+.card.interactive {
+  cursor: pointer;
+  transition: box-shadow var(--dur-card) var(--ease-out),
+              transform var(--dur-card) var(--ease-out),
+              border-color var(--dur-card) var(--ease-out);
+}
+.card.interactive:hover {
+  box-shadow: var(--neu-raised-lg);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--border-hairline));
+}
+.card.interactive:active { box-shadow: var(--neu-raised-sm); transform: translateY(0); }
 
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
 .card-foot { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
 
-.grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+/* Shell dashboard grid. Scoped away from the landing page, whose Tailwind
+   `grid-cols-*` / `col-span-*` utilities share the bare `.grid` class name and
+   would otherwise be overridden by this auto-fill template. */
+body:not(.on-home-view) .grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
 
@@ -372,7 +405,7 @@ a  { color: var(--accent-primary); }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   min-height: 44px;                 /* WCAG 2.5.5 target size */
   padding: var(--space-2) var(--space-4);
-  border: 0; border-radius: var(--radius-md);
+  border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
   font: inherit; font-size: var(--text-sm); font-weight: 500;
   cursor: pointer;
   background: var(--surface-raised); color: var(--text-primary);
@@ -429,11 +462,17 @@ input[type="email"], input[type="date"], select, textarea {
   width: 100%;
   min-height: 44px;
   padding: var(--space-3) var(--space-4);
-  border: 0; border-radius: var(--radius-md);
-  background: var(--surface-pressed); color: var(--text-primary);
-  box-shadow: var(--neu-input);
+  border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+  background: var(--surface-raised); color: var(--text-primary);
   font: inherit; font-size: var(--text-base);
   outline: none;
+  transition: border-color var(--dur-hover) var(--ease-out),
+              box-shadow var(--dur-hover) var(--ease-out);
+}
+input[type="text"]:focus, input[type="number"]:focus, input[type="search"]:focus,
+input[type="email"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
 input::placeholder, textarea::placeholder { color: var(--text-disabled); }
@@ -461,21 +500,25 @@ select {
   width: 48px; height: 26px; flex: none; padding: 3px;
   border-radius: 13px;
   background: var(--surface-pressed);
-  box-shadow: var(--neu-pressed);
+  border: 1px solid var(--border-hairline);
   display: flex; align-items: center;
+  transition: background-color var(--dur-card) var(--ease-out),
+              border-color var(--dur-card) var(--ease-out);
 }
 .toggle-knob {
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--surface-raised);
-  box-shadow: var(--neu-raised-sm);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
   transform: translateX(0);
-  transition: transform var(--dur-card) var(--ease-out),
-              background-color var(--dur-card) var(--ease-out);
+  transition: transform var(--dur-card) var(--ease-out);
 }
-/* The track colour never changes — the knob's position and accent fill carry
-   the state, so the surface stays neumorphic in both positions. */
+/* Modern filled toggle: the track fills with the accent when on; the white
+   knob slides across. */
+.toggle input:checked + .toggle-track {
+  background: var(--accent-primary); border-color: var(--accent-primary);
+}
 .toggle input:checked + .toggle-track .toggle-knob {
-  transform: translateX(22px); background: var(--accent-primary);
+  transform: translateX(22px);
 }
 .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 .toggle-label { font-size: var(--text-sm); }
@@ -1004,7 +1047,7 @@ details[open] > summary::before { transform: rotate(90deg); }
   .bar-row { grid-template-columns: 96px 1fr 46px; }
   .workspace { padding: var(--space-3) var(--space-2) calc(var(--tabbar-h) + var(--space-8)); }
   h1 { font-size: var(--text-xl); }
-  .grid { grid-template-columns: 1fr; }
+  body:not(.on-home-view) .grid { grid-template-columns: 1fr; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1187,7 +1230,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .kpi { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
 
 /* Cards in a grid stagger the same way. */
-.grid > .card { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+body:not(.on-home-view) .grid > .card { animation: enter var(--dur-card) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
 
 /* Dropzone reacts to a dragged folder. */
 .dropzone { transition: box-shadow var(--dur-card) var(--ease-out), transform var(--dur-card) var(--ease-out); }
@@ -1274,6 +1317,20 @@ body.on-home-view #view-home {
   width: 100% !important;
   display: block !important;
   transform: none !important;
+}
+
+/* The landing page's navbar uses position: fixed to pin to the viewport. That
+   only works if NO ancestor establishes a containing block. #viewHost sets
+   `contain: layout style` for the heavy dashboard views (and transforms are
+   reset above), so neutralise contain / will-change across the home-view
+   ancestor chain — otherwise the fixed navbar is trapped in #viewHost and
+   scrolls away with the page. */
+body.on-home-view .shell,
+body.on-home-view .workspace,
+body.on-home-view #viewHost,
+body.on-home-view #view-home {
+  contain: none !important;
+  will-change: auto !important;
 }
 
 

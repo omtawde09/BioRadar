@@ -5,17 +5,21 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   }
-  
-  body {
+
+  /* Scoped to the landing view (`body.on-home-view`) so these page-level
+     defaults don't leak into the app shell, which sets its own background,
+     text colour and Inter/JetBrains typography via app.css. Leaking them was
+     what tinted the app cream and rendered its headings in Bungee. */
+  body.on-home-view {
     background-color: #fcfcf0;
     color: #020404;
     font-family: 'Poppins', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  .on-home-view h1, .on-home-view h2, .on-home-view h3,
+  .on-home-view h4, .on-home-view h5, .on-home-view h6 {
     font-family: 'Bungee', cursive, sans-serif;
     letter-spacing: 0.02em;
   }
