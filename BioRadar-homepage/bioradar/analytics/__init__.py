@@ -1,1 +1,0 @@
-"""BioRadar Analytics Subsystem."""
