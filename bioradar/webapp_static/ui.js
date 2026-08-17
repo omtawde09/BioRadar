@@ -66,6 +66,7 @@
   /* ── icons (inline, 24px grid, stroke: currentColor) ──────────────── */
 
   var ICONS = {
+    home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-linejoin="round"/><polyline points="9 22 9 12 15 12 15 22" stroke-linejoin="round"/>',
     upload: '<path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>',
     activity: '<path d="M3 12h4l3-8 4 16 3-8h4" stroke-linecap="round" stroke-linejoin="round"/>',
     layers: '<path d="M12 3 3 8l9 5 9-5-9-5Z" stroke-linejoin="round"/><path d="m3 13 9 5 9-5" stroke-linecap="round" stroke-linejoin="round"/>',

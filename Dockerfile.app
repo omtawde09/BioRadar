@@ -22,9 +22,11 @@ LABEL org.opencontainers.image.description="Run the eDNA pipeline from a browser
 WORKDIR /bioradar
 
 ENV PYTHONPATH=/bioradar \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    NODE_ENV=development \
+    AGENTATION_ENABLED=true
 
-EXPOSE 8080
+EXPOSE 8080 3000
 
 # Overrides the upstream Flask entrypoint.
 ENTRYPOINT ["python", "-u", "-m", "bioradar.webapp", "--host", "0.0.0.0", "--port", "8080"]

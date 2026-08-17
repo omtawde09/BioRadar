@@ -157,16 +157,20 @@
   function buildShell() {
     var sidebar = document.getElementById("sidebar");
     var tabbar = document.getElementById("tabbar");
+    var appbarNav = document.getElementById("appbarNav");
     var workspace = document.getElementById("viewHost");
     var actions = document.getElementById("appbarActions");
 
     var views = Registry.bySlot("main-view");
 
-    sidebar.innerHTML = views.map(navButton).join("");
+    if (sidebar) sidebar.innerHTML = views.map(navButton).join("");
+    if (appbarNav) appbarNav.innerHTML = views.map(appbarNavButton).join("");
     // Four is the ceiling for a phone tab bar; the rest stay reachable from the
     // sidebar on any screen wide enough to show it.
-    tabbar.innerHTML = views.filter(function (f) { return f.primary; })
-                            .slice(0, 4).map(navButton).join("");
+    if (tabbar) {
+      tabbar.innerHTML = views.filter(function (f) { return f.primary; })
+                              .slice(0, 4).map(navButton).join("");
+    }
 
     workspace.innerHTML = views.map(function (feature) {
       return '<section class="view" id="view-' + esc(feature.id) +
@@ -189,6 +193,14 @@
       UI.icon(feature.icon) +
       '<span class="nav-badge" data-badge="' + esc(feature.id) + '" data-count="0"></span>' +
       "<span>" + esc(feature.label()) + "</span></button>";
+  }
+
+  function appbarNavButton(feature) {
+    return '<button class="appbar-nav-item" type="button" role="tab" data-view="' + esc(feature.id) +
+      '" id="appbar-nav-' + esc(feature.id) + '" aria-current="false">' +
+      UI.icon(feature.icon, 15) +
+      '<span>' + esc(feature.label()) + '</span>' +
+      '<span class="nav-badge" data-badge="' + esc(feature.id) + '" data-count="0"></span></button>';
   }
 
   function showView(id) {
@@ -251,7 +263,7 @@
 
   // The scheduler renders whichever view is showing; each feature's refresh is
   // the entry point, and each guards itself on a signature.
-  ["analyze", "monitor", "results", "compare", "alerts", "settings"].forEach(function (id) {
+  ["home", "analyze", "monitor", "results", "compare", "alerts", "settings"].forEach(function (id) {
     renderers[id] = function () {
       var feature = Registry.get(id);
       if (feature && feature.refresh) {
@@ -320,6 +332,29 @@
       return '<span class="health" id="healthChip" title="System health">' +
         '<span class="health-dot" id="healthDot"></span>' +
         '<span id="healthText">' + esc(t("common.loading")) + "</span></span>";
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Feature: Home (Eco Theory, Scientific Workflow & Biology)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  Registry.registerFeature({
+    id: "home", name: "Home", slot: "main-view", order: 5, primary: true,
+    icon: "home",
+    label: function () { return t("nav.home", "Home"); },
+    mount: function (container) {
+      if (window.mountBioRadarHome) {
+        window.mountBioRadarHome(container, function (viewId) {
+          showView(viewId);
+        });
+      }
+    },
+    onShow: function () {
+      document.body.classList.add("on-home-view");
+    },
+    onHide: function () {
+      document.body.classList.remove("on-home-view");
     }
   });
 
@@ -2307,10 +2342,18 @@
   function boot() {
     restoreTheme();
     I18n.restore();
+    UI.showView = showView;
     buildShell();
 
     var wanted = (location.hash || "").replace("#", "");
-    showView(Registry.get(wanted) ? wanted : "analyze");
+    showView(Registry.get(wanted) ? wanted : "home");
+
+    window.addEventListener("hashchange", function () {
+      var target = (location.hash || "").replace("#", "");
+      if (Registry.get(target)) {
+        showView(target);
+      }
+    });
 
     document.addEventListener("bioradar:language", function () {
       // Rebuilding the shell re-runs every label function, so a language switch
@@ -2319,7 +2362,7 @@
       buildShell();
       resultsSignature = "";
       datasetSignature = "";
-      showView(activeViewId || "analyze");
+      showView(activeViewId || "home");
       poll();
     });
 

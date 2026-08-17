@@ -233,6 +233,68 @@ a  { color: var(--accent-primary); }
 .brand-name { font-weight: 700; font-size: var(--text-lg); letter-spacing: -.01em; line-height: 1.15; }
 .brand-sub { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.2; }
 
+/* ── Desktop Top Navigation Bar in Appbar ── */
+.appbar-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 var(--space-3);
+}
+
+.appbar-nav-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
+  white-space: nowrap;
+}
+
+.appbar-nav-item:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.appbar-nav-item[aria-current="page"] {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+/* Animated expanding underline hover effect */
+.appbar-nav-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  width: 80%;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(104, 150, 96, 0.6);
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+}
+
+.appbar-nav-item:hover::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.appbar-nav-item[aria-current="page"]::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
 .appbar-actions { display: flex; align-items: center; gap: var(--space-2); }
 
 .shell { display: flex; align-items: stretch; min-height: calc(100vh - var(--appbar-h)); }
@@ -896,6 +958,7 @@ details[open] > summary::before { transform: rotate(90deg); }
   :root { --appbar-h: 56px; }
   .appbar { padding: 0 var(--space-3); gap: var(--space-2); }
   .brand-sub { display: none; }
+  .appbar-nav { display: none !important; }
   .sidebar { display: none; }
   .workspace { padding: var(--space-4) var(--space-3) calc(var(--tabbar-h) + var(--space-8)); gap: var(--space-4); }
   .shell { display: block; }
@@ -1165,3 +1228,52 @@ details[open] > summary::before { transform: rotate(90deg); }
   .card, .kpi { box-shadow: none; border: 1px solid #ccc; }
   .view { display: flex !important; }
 }
+
+/* ── Fullscreen Eco Theory Homepage view layout ── */
+body.on-home-view {
+  background: #fcfcf0 !important;
+  color: #020404 !important;
+}
+
+body.on-home-view .appbar,
+body.on-home-view .sidebar,
+body.on-home-view .tabbar {
+  display: none !important;
+}
+
+body.on-home-view .shell {
+  min-height: 100vh;
+  display: block !important;
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+}
+
+body.on-home-view .workspace {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  max-width: 100% !important;
+  display: block !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+body.on-home-view #viewHost {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  display: block !important;
+  transform: none !important;
+}
+
+body.on-home-view #view-home {
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  width: 100% !important;
+  display: block !important;
+  transform: none !important;
+}
+
+
