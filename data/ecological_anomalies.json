@@ -1,0 +1,58 @@
+[
+  {
+    "id": "anom-1787081118-1",
+    "sample_id": "GOA-MANDOVI",
+    "species_name": "Tor putitora",
+    "anomaly_type": "sudden_disappearance",
+    "severity": "critical",
+    "expected_read_count": 0,
+    "actual_read_count": 0,
+    "historical_mean_rpm": 537018.04,
+    "current_rpm": 0.0,
+    "z_score": -4.5,
+    "interpretation": "Tor putitora was consistently detected across historical runs but is entirely absent in current sample. Possible local extinction or severe environmental disturbance.",
+    "created_at": "2026-08-18 19:25:18 UTC"
+  },
+  {
+    "id": "anom-1787081118-2",
+    "sample_id": "GOA-MANDOVI",
+    "species_name": "Clarias gariepinus",
+    "anomaly_type": "sudden_disappearance",
+    "severity": "critical",
+    "expected_read_count": 0,
+    "actual_read_count": 0,
+    "historical_mean_rpm": 154985.75,
+    "current_rpm": 0.0,
+    "z_score": -4.5,
+    "interpretation": "Clarias gariepinus was consistently detected across historical runs but is entirely absent in current sample. Possible local extinction or severe environmental disturbance.",
+    "created_at": "2026-08-18 19:25:18 UTC"
+  },
+  {
+    "id": "anom-1787081118-3",
+    "sample_id": "GOA-MANDOVI",
+    "species_name": "Labeo rohita",
+    "anomaly_type": "sudden_disappearance",
+    "severity": "critical",
+    "expected_read_count": 0,
+    "actual_read_count": 0,
+    "historical_mean_rpm": 307996.2,
+    "current_rpm": 0.0,
+    "z_score": -4.5,
+    "interpretation": "Labeo rohita was consistently detected across historical runs but is entirely absent in current sample. Possible local extinction or severe environmental disturbance.",
+    "created_at": "2026-08-18 19:25:18 UTC"
+  },
+  {
+    "id": "anom-1787081118-4",
+    "sample_id": "GOA-MANDOVI",
+    "species_name": "COMMUNITY_MULTIVARIATE",
+    "anomaly_type": "abnormal_ratio",
+    "severity": "warning",
+    "expected_read_count": 0,
+    "actual_read_count": 1,
+    "historical_mean_rpm": 0.0,
+    "current_rpm": 0.0,
+    "z_score": 3.2,
+    "interpretation": "Multivariate species ratio shift detected by IsolationForest. The relative proportion between dominant taxa has shifted significantly from baseline.",
+    "created_at": "2026-08-18 19:25:18 UTC"
+  }
+]
