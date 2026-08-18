@@ -38,6 +38,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExplorePipeline, onL
           muted
           playsInline
           preload="auto"
+          poster="/static/assets/landing-image.png"
           className="absolute inset-0 w-full h-full object-cover"
           style={{
             filter: 'saturate(1.42) contrast(1.12) brightness(1.03)',
@@ -72,7 +73,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExplorePipeline, onL
 
       <div className="relative z-10 max-w-5xl mx-auto text-center flex flex-col items-center justify-center">
         {/* Top Badges with Staggered Pop-In */}
-        <StaggerContainer className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-6 sm:mb-8" staggerDelay={0.08}>
+        <StaggerContainer immediate className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mb-6 sm:mb-8" staggerDelay={0.08}>
           <StaggerItem>
             <span className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#09140c]/85 border-2 border-[#82b978] text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#82b978] shadow-lg hover:scale-105 transition-transform backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-[#82b978] animate-pulse" />
@@ -94,31 +95,31 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExplorePipeline, onL
         </StaggerContainer>
 
         {/* Main Engaging Headings in Bungee font with Spring Pop-Up */}
-        <PopUp delay={0.15} duration={0.7} className="w-full">
+        <PopUp immediate delay={0.15} duration={0.7} className="w-full">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-normal tracking-wide text-white font-heading uppercase leading-tight max-w-4xl mx-auto drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
             {t('hero.title')}
           </h1>
         </PopUp>
 
-        <RiseUp delay={0.25} duration={0.6}>
+        <RiseUp immediate delay={0.25} duration={0.6}>
           <div className="w-24 h-1.5 bg-[#82b978] mx-auto mt-4 sm:mt-5 mb-4 sm:mb-5 rounded-full shadow-[0_0_12px_rgba(130,185,120,0.8)]" />
         </RiseUp>
 
-        <RiseUp delay={0.3} duration={0.65} className="w-full">
+        <RiseUp immediate delay={0.3} duration={0.65} className="w-full">
           <h2 className="text-base sm:text-2xl font-normal text-[#98e6a0] mb-6 font-heading tracking-wide uppercase max-w-3xl mx-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
             {t('hero.subtitle')}
           </h2>
         </RiseUp>
 
         {/* Body lede in Poppins with Smooth Rise */}
-        <RiseUp delay={0.4} duration={0.7} className="w-full">
+        <RiseUp immediate delay={0.4} duration={0.7} className="w-full">
           <p className="text-xs sm:text-base lg:text-lg text-[#f0fbf2] leading-relaxed max-w-3xl mx-auto mb-8 sm:mb-10 font-semibold font-sans drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
             {t('hero.lede')}
           </p>
         </RiseUp>
 
         {/* Action Buttons with Spring Pop-Up */}
-        <PopUp delay={0.5} duration={0.65} className="w-full sm:w-auto">
+        <PopUp immediate delay={0.5} duration={0.65} className="w-full sm:w-auto">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 w-full sm:w-auto">
             <a
               href="#pipeline"

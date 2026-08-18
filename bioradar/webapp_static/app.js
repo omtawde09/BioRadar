@@ -306,10 +306,12 @@
       // app bubbles into it. That handler switched the language, which rebuilt
       // the shell, which bound another body handler: clicks doubled on every
       // interaction until the page stopped responding.
+      // Globe + short codes (EN / हिन्दी) to mirror the landing-page toggle.
       return '<div class="segmented" id="langToggle" role="group" aria-label="Language">' +
+        UI.icon("globe", 15) +
         I18n.available.map(function (lang) {
           return '<button type="button" data-set-lang="' + lang.code + '" aria-pressed="' +
-            (I18n.language() === lang.code) + '">' + esc(lang.label) + "</button>";
+            (I18n.language() === lang.code) + '">' + esc(lang.short || lang.label) + "</button>";
         }).join("") + "</div>";
     },
     onShow: function () {

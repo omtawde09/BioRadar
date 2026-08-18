@@ -6,6 +6,10 @@ interface MotionRevealProps extends HTMLMotionProps<'div'> {
   delay?: number;
   duration?: number;
   className?: string;
+  // `immediate` plays the entrance on mount instead of waiting for the element
+  // to scroll into view. Use it for above-the-fold content (the hero) so it
+  // animates in reliably on first paint rather than flashing at opacity 0.
+  immediate?: boolean;
 }
 
 // 1. Smooth Vertical Rise-Up Animation (Framer template style)
@@ -14,13 +18,16 @@ export const RiseUp: React.FC<MotionRevealProps> = ({
   delay = 0,
   duration = 0.65,
   className = '',
+  immediate = false,
   ...props
 }) => {
+  const reveal = immediate
+    ? { animate: { opacity: 1, y: 0 } }
+    : { whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-40px' } };
   return (
     <motion.div
       initial={{ opacity: 0, y: 36 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-40px' }}
+      {...reveal}
       transition={{
         duration,
         delay,
@@ -40,13 +47,16 @@ export const PopUp: React.FC<MotionRevealProps> = ({
   delay = 0,
   duration = 0.6,
   className = '',
+  immediate = false,
   ...props
 }) => {
+  const reveal = immediate
+    ? { animate: { opacity: 1, scale: 1, y: 0 } }
+    : { whileInView: { opacity: 1, scale: 1, y: 0 }, viewport: { once: true, margin: '-40px' } };
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.88, y: 24 }}
-      whileInView={{ opacity: 1, scale: 1, y: 0 }}
-      viewport={{ once: true, margin: '-40px' }}
+      {...reveal}
       transition={{
         duration,
         delay,
@@ -112,6 +122,7 @@ interface StaggerContainerProps extends HTMLMotionProps<'div'> {
   staggerDelay?: number;
   delayChildren?: number;
   className?: string;
+  immediate?: boolean;
 }
 
 export const StaggerContainer: React.FC<StaggerContainerProps> = ({
@@ -119,13 +130,16 @@ export const StaggerContainer: React.FC<StaggerContainerProps> = ({
   staggerDelay = 0.1,
   delayChildren = 0,
   className = '',
+  immediate = false,
   ...props
 }) => {
+  const reveal = immediate
+    ? { animate: 'visible' as const }
+    : { whileInView: 'visible' as const, viewport: { once: true, margin: '-40px' } };
   return (
     <motion.div
       initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-40px' }}
+      {...reveal}
       variants={{
         hidden: { opacity: 0 },
         visible: {

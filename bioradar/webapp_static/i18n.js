@@ -290,8 +290,8 @@
     language: language,
     restore: restore,
     available: [
-      { code: "en", label: "English" },
-      { code: "hi", label: "हिन्दी" }
+      { code: "en", label: "English", short: "EN" },
+      { code: "hi", label: "हिन्दी", short: "हिन्दी" }
     ]
   };
 })(window);

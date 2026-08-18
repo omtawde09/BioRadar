@@ -24,9 +24,9 @@
   /* ── Modern flat theme (light, eco-green brand). Unlike the previous
      neumorphism, surfaces separate by FILL — a soft ground with white raised
      cards — and elevation is a single soft shadow, not a double one. ── */
-  --surface-base:     #eef2ea;   /* app ground, faint green-grey */
+  --surface-base:     #fcfcf0;   /* landing cream ground (grid drawn over it) */
   --surface-raised:   #ffffff;   /* cards, bars, inputs, menus */
-  --surface-pressed:  #e6ece1;   /* pressed / active wells */
+  --surface-pressed:  #f3f7ec;   /* pressed / active wells */
   --surface-overlay:  #ffffff;   /* modals, popovers */
   --surface-chart:    #ffffff;   /* charts need their own ground */
 
@@ -53,7 +53,7 @@
   --text-secondary:  #566150;
   --text-disabled:   #9aa694;
 
-  --border-hairline: rgba(20, 40, 15, .10);
+  --border-hairline: rgba(104, 150, 96, .28);   /* green-tinted, like landing cards */
 
   /* Modern elevation — one soft shadow set, single light source from above.
      No inset+outset pair, so nothing reads as extruded plastic. */
@@ -75,7 +75,9 @@
 
   /* Type — Major Third, 1.250. 16px base: below that iOS Safari zooms inputs
      on focus and the layout jumps under the user's thumb. */
-  --font-sans: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  /* Shared with the landing page: Poppins body + Bungee display wordmark. */
+  --font-sans: "Poppins", "Segoe UI Variable", system-ui, -apple-system, Roboto, sans-serif;
+  --font-display: "Bungee", "Poppins", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --font-deva: "Noto Sans Devanagari", "Nirmala UI", var(--font-sans);
 
@@ -177,6 +179,33 @@ body {
 
 body[data-lang="hi"] { font-family: var(--font-deva); }
 
+/* ── Shared grid + bio-glow background (matches the landing's bg-bio-neural) so
+   the app never reads as an empty page. Fixed so it stays put while scrolling.
+   The landing view paints its own background, so this targets the app only. ── */
+body:not(.on-home-view) {
+  background-color: var(--surface-base);
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(104, 150, 96, .12) 0%, transparent 42%),
+    radial-gradient(circle at 88% 82%, rgba(189, 59, 103, .08) 0%, transparent 46%),
+    linear-gradient(to right,  rgba(20, 40, 15, .05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 40, 15, .05) 1px, transparent 1px),
+    linear-gradient(to right,  rgba(104, 150, 96, .10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(104, 150, 96, .10) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px, 24px 24px, 24px 24px;
+  background-attachment: fixed;
+}
+[data-theme="dark"] body:not(.on-home-view) {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(130, 185, 120, .12) 0%, transparent 42%),
+    radial-gradient(circle at 88% 82%, rgba(224, 105, 154, .08) 0%, transparent 46%),
+    linear-gradient(to right,  rgba(255, 255, 255, .04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, .04) 1px, transparent 1px),
+    linear-gradient(to right,  rgba(130, 185, 120, .07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(130, 185, 120, .07) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px, 24px 24px, 24px 24px;
+  background-attachment: fixed;
+}
+
 h1, h2, h3, h4 { margin: 0; line-height: 1.3; font-weight: 600; }
 h1 { font-size: var(--text-2xl); font-weight: 700; letter-spacing: -.02em; }
 h2 { font-size: var(--text-xl); }
@@ -236,19 +265,19 @@ body:not(.on-home-view) #bioradar-navbar { display: none !important; }
   height: var(--appbar-h);
   display: flex; align-items: center; gap: var(--space-4);
   padding: 0 max(var(--space-4), calc((100% - var(--content-max)) / 2));
-  background: var(--surface-raised);
-  border-bottom: 1px solid var(--border-hairline);
+  background: #0d1c10;
+  border-bottom: 2px solid #1e3320;
 }
 
 .brand { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .brand-mark {
-  width: 40px; height: 40px; flex: none;
+  width: 38px; height: 38px; flex: none;
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: var(--neu-raised-sm);
   display: grid; place-items: center;
 }
-.brand-mark svg { width: 24px; height: 24px; }
+.brand-mark svg { width: 19px; height: 19px; }
 .logo .ring { fill: none; stroke: var(--accent-primary); stroke-width: 1.4; opacity: .55; }
 .logo .r2 { opacity: .75; } .logo .r3 { opacity: .95; }
 .logo .dot { fill: var(--alert-healthy); }
@@ -269,20 +298,23 @@ body:not(.on-home-view) #bioradar-navbar { display: none !important; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  letter-spacing: .01em;
+  text-transform: none;   /* title-case, like the landing section nav */
   cursor: pointer;
   transition: color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
   white-space: nowrap;
 }
+/* Landing section nav is text-only; hide the per-item icons so the two navs
+   read the same. */
+.appbar-nav-item svg { display: none; }
 
 .appbar-nav-item:hover {
   color: var(--text-primary);
@@ -319,6 +351,53 @@ body:not(.on-home-view) #bioradar-navbar { display: none !important; }
 }
 
 .appbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* ── Landing-matched dark top bar ─────────────────────────────────────────
+   The appbar mirrors the landing navbar — dark-green ground, Bungee wordmark,
+   green links — so moving between the marketing site and the app feels like
+   one product. (Descendant selectors keep specificity above the base rules.) */
+.appbar .brand-mark {
+  background: #142418;
+  border: 2px solid #82b978;
+  box-shadow: none;
+}
+.appbar .brand-mark .logo { color: #82b978; }   /* DNA icon uses currentColor */
+.appbar .brand-name {
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: .04em;
+}
+.appbar .brand-sub { color: #c2d6be; }
+.brand-line { display: flex; align-items: center; gap: 8px; }
+.appbar .brand-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding: 1px 8px; border-radius: 999px;
+  background: #142418; border: 1px solid #82b978; color: #82b978;
+}
+
+.appbar-nav-item { color: rgba(255, 255, 255, .82); }
+.appbar-nav-item:hover { color: #a8d89e; background: rgba(130, 185, 120, .12); }
+.appbar-nav-item[aria-current="page"] { color: #a8d89e; background: rgba(130, 185, 120, .16); }
+.appbar-nav-item::after { background: #82b978; box-shadow: 0 0 8px rgba(130, 185, 120, .6); }
+
+.appbar .btn.icon {
+  background: #142418; border: 1px solid #2b422a; color: #c2d6be; box-shadow: none;
+}
+.appbar .btn.icon:hover { border-color: #82b978; color: #ffffff; background: #1a3120; }
+.appbar .segmented {
+  background: #142418; border: 2px solid #82b978; box-shadow: none;
+  align-items: center; padding: 3px; gap: 2px;
+}
+.appbar .segmented > svg { color: #82b978; margin: 0 2px 0 6px; flex: none; }
+.appbar .segmented button {
+  color: #c2d6be; border-radius: 999px; font-weight: 700;
+  padding: 4px 12px; min-height: 0;
+}
+.appbar .segmented button[aria-pressed="true"] {
+  background: #689660; color: #ffffff; border: 1px solid #82b978; box-shadow: none;
+}
+.appbar .health { color: #c2d6be; }
 
 .shell { display: flex; align-items: stretch; min-height: calc(100vh - var(--appbar-h)); }
 
@@ -364,19 +443,27 @@ body:not(.on-home-view) #bioradar-navbar { display: none !important; }
 .view.active { display: flex; }
 
 .view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.view-head p { margin: var(--space-1) 0 0; color: var(--text-secondary); max-width: 68ch; }
+.view-head h1 {
+  font-family: var(--font-display);   /* Bungee, echoing the landing headings */
+  font-weight: 400;
+  font-size: var(--text-2xl);
+  letter-spacing: .01em;
+  line-height: 1.18;
+  color: var(--text-primary);
+}
+.view-head p { margin: var(--space-2) 0 0; color: var(--text-secondary); max-width: 68ch; }
 
 /* ── Card (flat, softly elevated) ──────────────────────────────────────── */
 
 .card {
   background: var(--surface-raised);
-  border: 1px solid var(--border-hairline);
-  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border-hairline);
+  border-radius: 24px;
   box-shadow: var(--neu-raised);
-  padding: var(--space-4);
+  padding: var(--space-6);
 }
-.card.lg { border-radius: var(--radius-xl); box-shadow: var(--neu-raised-lg); padding: var(--space-6); }
-.card.sm { border-radius: var(--radius-md); box-shadow: var(--neu-raised-sm); padding: var(--space-3); }
+.card.lg { border-radius: 28px; box-shadow: var(--neu-raised-lg); padding: var(--space-8); }
+.card.sm { border-radius: var(--radius-lg); box-shadow: var(--neu-raised-sm); padding: var(--space-4); }
 
 .card.interactive {
   cursor: pointer;
@@ -405,8 +492,8 @@ body:not(.on-home-view) .grid { display: grid; gap: var(--space-4); grid-templat
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   min-height: 44px;                 /* WCAG 2.5.5 target size */
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
-  font: inherit; font-size: var(--text-sm); font-weight: 500;
+  border: 1px solid var(--border-hairline); border-radius: 999px;
+  font: inherit; font-size: var(--text-sm); font-weight: 600;
   cursor: pointer;
   background: var(--surface-raised); color: var(--text-primary);
   box-shadow: var(--neu-raised-sm);
@@ -523,7 +610,7 @@ select {
 .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 .toggle-label { font-size: var(--text-sm); }
 
-.segmented { display: inline-flex; padding: 3px; gap: 3px; border-radius: var(--radius-md); background: var(--surface-pressed); box-shadow: var(--neu-pressed); }
+.segmented { display: inline-flex; padding: 3px; gap: 3px; border-radius: 999px; background: var(--surface-pressed); border: 1px solid var(--border-hairline); }
 .segmented button {
   border: 0; background: none; color: var(--text-secondary);
   font: inherit; font-size: var(--text-xs); font-weight: 600;
@@ -556,9 +643,9 @@ select {
 .badge.info, .badge.unverified, .badge.missing, .badge.cancelled { background: var(--alert-neutral); color: #131a1a; }
 
 .pill {
-  display: inline-block; min-width: 20px; padding: 1px 7px;
-  border-radius: 10px; background: var(--surface-pressed);
-  box-shadow: var(--neu-pressed);
+  display: inline-block; min-width: 20px; padding: 1px 8px;
+  border-radius: 999px; background: var(--surface-pressed);
+  border: 1px solid var(--border-hairline);
   font-size: var(--text-xs); font-weight: 600; text-align: center;
 }
 
@@ -567,8 +654,9 @@ select {
 .kpis { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .kpi {
   background: var(--surface-raised);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--neu-raised-lg);
+  border: 1.5px solid var(--border-hairline);
+  border-radius: 24px;
+  box-shadow: var(--neu-raised);
   padding: var(--space-6) var(--space-4);
 }
 .kpi .k { font-size: var(--text-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
@@ -813,15 +901,20 @@ table.data em { font-style: italic; }
 /* ── Dropzone ──────────────────────────────────────────────────────────── */
 
 .dropzone {
-  border-radius: var(--radius-lg);
-  background: var(--surface-pressed);
-  box-shadow: var(--neu-pressed);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-pressed));
+  border: 2px dashed color-mix(in srgb, var(--accent-primary) 50%, var(--border-hairline));
+  box-shadow: none;
   padding: var(--space-12) var(--space-6);
   text-align: center;
-  transition: box-shadow var(--dur-card) var(--ease-out);
+  transition: border-color var(--dur-card) var(--ease-out),
+              background-color var(--dur-card) var(--ease-out);
 }
-.dropzone.over { box-shadow: var(--neu-pressed), inset 0 0 0 2px var(--accent-primary); }
-.dz-icon { width: 46px; height: 46px; stroke: var(--text-secondary); fill: none; stroke-width: 1.4; }
+.dropzone.over {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-pressed));
+}
+.dz-icon { width: 46px; height: 46px; stroke: var(--accent-primary); fill: none; stroke-width: 1.4; }
 .dz-title { font-size: var(--text-lg); font-weight: 500; margin: var(--space-3) 0 var(--space-4); }
 .dz-actions { display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap; }
 .dz-note { margin-top: var(--space-4); font-size: var(--text-sm); color: var(--text-secondary); }

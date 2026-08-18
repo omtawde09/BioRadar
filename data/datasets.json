@@ -1,6 +1,7 @@
 {
-  "_comment": "Pre-registered datasets shown in the app so a fresh clone has something to run immediately. The Remove button in the UI does NOT edit this file -- it records the id in the gitignored data/.hidden_datasets.json instead. Restore with: python -m bioradar.webapp --restore-datasets",
-  "datasets": [
+  "_comment": "No datasets are pre-registered: the app opens with an empty 'Your datasets' list so people only ever see what they upload themselves. The former SIMULATED demo entry is preserved below under `_examples` (which the app does NOT load) — move it back into `datasets` to re-enable a bundled demo.",
+  "datasets": [],
+  "_examples": [
     {
       "id": "demo-survey",
       "name": "Indian coastal survey (SIMULATED demonstration data)",
