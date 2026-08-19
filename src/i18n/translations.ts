@@ -34,9 +34,9 @@ export const translations: Record<'en' | 'hi', TranslationDictionary> = {
     'lang.toggle': 'Language',
 
     // Hero Section
-    'hero.badge.sih': 'Smart India Hackathon 2026',
+    'hero.badge.sih': 'Environmental DNA Intelligence',
     'hero.badge.moes': 'Ministry of Earth Sciences',
-    'hero.badge.ps': 'Problem Statement SIH25042',
+    'hero.badge.ps': 'Non-Invasive Aquatic Surveillance',
     'hero.title': 'BIODIVERSITY INTELLIGENCE FOR INDIAN WATERS',
     'hero.subtitle': 'DECODING AQUATIC ECOSYSTEMS FROM ENVIRONMENTAL DNA',
     'hero.lede': 'From a single litre of estuarine or coastal water, BioRadar reconstructs complete biological communities, detects invasive threats, and cryptographically proves scientific findings without catching, seeing, or disturbing a single organism.',
@@ -157,7 +157,7 @@ export const translations: Record<'en' | 'hi', TranslationDictionary> = {
     'footer.compliance': 'Compliance & Standards',
     'footer.gigw': 'GIGW Compliant',
     'footer.wcag': 'WCAG 2.1 AA Accessible',
-    'footer.moesCite': 'SIH 2026 • MoES SIH25042',
+    'footer.moesCite': 'Ministry of Earth Sciences',
     'footer.standards': 'Darwin Core (DwC) & MIxS',
     'footer.provenance': 'Cryptographic Provenance:',
     'footer.provenanceValue': 'SHA-256 Chained Hash Ledger',
@@ -195,9 +195,9 @@ export const translations: Record<'en' | 'hi', TranslationDictionary> = {
     'lang.toggle': 'भाषा / Language',
 
     // Hero Section
-    'hero.badge.sih': 'स्मार्ट इंडिया हैकाथॉन 2026',
+    'hero.badge.sih': 'पर्यावरणीय डीएनए इंटेलिजेंस',
     'hero.badge.moes': 'पृथ्वी विज्ञान मंत्रालय (MoES)',
-    'hero.badge.ps': 'समस्या विवरण SIH25042',
+    'hero.badge.ps': 'गैर-आक्रामक जलीय निगरानी',
     'hero.title': 'भारतीय जलक्षेत्र हेतु जैवविविधता इंटेलिजेंस',
     'hero.subtitle': 'पर्यावरणीय DNA (eDNA) से जलीय पारिस्थितिकी तंत्र का विश्लेषण',
     'hero.lede': 'मात्र एक लीटर मुहाने या तटीय जल के नमूने से, BioRadar किसी भी जीव को पकड़े, देखे या नुकसान पहुँचाए बिना संपूर्ण जैविक समुदाय का पुनर्निर्माण करता है, आक्रामक प्रजातियों की पहचान करता है, और वैज्ञानिक साक्ष्य प्रस्तुत करता है।',
@@ -318,7 +318,7 @@ export const translations: Record<'en' | 'hi', TranslationDictionary> = {
     'footer.compliance': 'मानक व अनुपालन',
     'footer.gigw': 'GIGW अनुपालित',
     'footer.wcag': 'WCAG 2.1 AA सुलभ',
-    'footer.moesCite': 'SIH 2026 • MoES SIH25042',
+    'footer.moesCite': 'Ministry of Earth Sciences',
     'footer.standards': 'Darwin Core (DwC) व MIxS',
     'footer.provenance': 'क्रिप्टोग्राफ़िक उद्गम:',
     'footer.provenanceValue': 'SHA-256 शृंखलाबद्ध हैश लेज़र',

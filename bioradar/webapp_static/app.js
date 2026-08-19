@@ -145,11 +145,18 @@
   }
 
   function restoreTheme() {
-    var saved = null;
-    try { saved = localStorage.getItem("bioradar.theme"); } catch (e) { /* private mode */ }
-    // Light is the default look now; dark is opt-in via the toggle.
-    applyTheme(saved === "dark" ? "dark" : "light");
+    // The application is light-only; dark mode has been removed.
+    applyTheme("light");
   }
+
+  // [8] Smooth fade whenever the interface language changes. Both the landing
+  // page and the app dispatch `bioradar:language`, so this covers both.
+  document.addEventListener("bioradar:language", function () {
+    document.body.classList.add("lang-switching");
+    window.setTimeout(function () {
+      document.body.classList.remove("lang-switching");
+    }, 480);
+  });
 
   /* ── Shell ────────────────────────────────────────────────────────── */
 
@@ -277,25 +284,8 @@
      Header actions
      ══════════════════════════════════════════════════════════════════════ */
 
-  Registry.registerFeature({
-    id: "theme-toggle", name: "Theme", slot: "header-action", order: 10,
-    mount: function () {
-      return UI.button("", {
-        id: "themeBtn", icon: currentTheme() === "light" ? "moon" : "sun",
-        className: "icon", ariaLabel: "Switch between light and dark mode",
-        title: "Light / dark"
-      });
-    },
-    onShow: function () {
-      var btn = document.getElementById("themeBtn");
-      if (!btn) return;
-      btn.addEventListener("click", function () {
-        var next = currentTheme() === "light" ? "dark" : "light";
-        applyTheme(next);
-        btn.innerHTML = UI.icon(next === "light" ? "moon" : "sun", 17);
-      });
-    }
-  });
+  // Dark mode has been removed — the app is light-only, so there is no theme
+  // toggle in the header.
 
   Registry.registerFeature({
     id: "lang-toggle", name: "Language", slot: "header-action", order: 20,
@@ -440,13 +430,50 @@
     return match ? Number(match[1]) : null;
   }
 
+  // [2] Read a folder via the File System Access API. Unlike an
+  // <input webkitdirectory>, this opens an ordinary folder picker with NO
+  // "Upload N files to this site? Only do this if you trust the site" warning.
+  function pickDirectory() {
+    return window.showDirectoryPicker().then(function (dir) {
+      var out = [];
+      function walk(handle) {
+        var iter = handle.values();
+        function step() {
+          return iter.next().then(function (res) {
+            if (res.done) return;
+            var entry = res.value;
+            if (entry.kind === "file") {
+              return entry.getFile().then(function (f) { out.push(f); return step(); });
+            }
+            if (entry.kind === "directory") {
+              return walk(entry).then(step);
+            }
+            return step();
+          });
+        }
+        return step();
+      }
+      return walk(dir).then(function () { return out; });
+    });
+  }
+
   function wireUpload() {
     var dropzone = document.getElementById("dropzone");
     var fileInput = document.getElementById("fileInput");
     var folderInput = document.getElementById("folderInput");
 
     document.getElementById("folderBtn").addEventListener("click", function (e) {
-      e.stopPropagation(); folderInput.click();
+      e.stopPropagation();
+      if (window.showDirectoryPicker) {
+        pickDirectory().then(function (files) {
+          if (files && files.length) addFiles(files);
+        }).catch(function (err) {
+          if (err && err.name === "AbortError") return;   // user cancelled
+          folderInput.click();                              // any other error: fall back
+        });
+      } else {
+        folderInput.click();
+      }
     });
     document.getElementById("filesBtn").addEventListener("click", function (e) {
       e.stopPropagation(); fileInput.click();
@@ -2069,11 +2096,6 @@
     if (!changed("settings", signature)) return;
 
     host.innerHTML =
-      UI.card("<h2>" + esc(t("settings.appearance")) + "</h2>" +
-        '<div style="margin-top:16px">' +
-        UI.toggle("themeSetting", t("settings.theme"), currentTheme() === "light") +
-        '<div class="hint" style="margin-top:8px">' + esc(t("settings.themeHint")) + "</div></div>") +
-
       UI.card("<h2>" + esc(t("settings.health")) + "</h2>" +
         '<div class="row" style="margin-top:12px"><span class="health-dot ' +
         esc(health.status) + '"></span><b>' + esc(health.status) + "</b>" +
@@ -2097,13 +2119,6 @@
         "failure is recorded against it, so a problem in a demo is a search rather " +
         "than an investigation.</p>" +
         '<div id="errorsBody" style="margin-top:16px">' + UI.skeleton("line", 3) + "</div>");
-
-    var themeSetting = document.getElementById("themeSetting");
-    themeSetting.addEventListener("change", function () {
-      applyTheme(themeSetting.checked ? "light" : "dark");
-      var btn = document.getElementById("themeBtn");
-      if (btn) btn.innerHTML = UI.icon(currentTheme() === "light" ? "moon" : "sun", 17);
-    });
 
     api("/api/channels").then(function (channels) {
       var host2 = document.getElementById("channelsBody");

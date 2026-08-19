@@ -769,34 +769,85 @@ def all_datasets() -> List[Dict[str, Any]]:
 # --------------------------------------------------------------------------
 
 
+_SITE_REGISTRY_CACHE: Optional[Dict[str, tuple]] = None
+
+
+def _site_registry() -> Dict[str, tuple]:
+    """`site_id` (upper-case) -> (lat, lon), read once from data/sites.csv.
+
+    Lets the map resolve coordinates for well-known Indian sites even when an
+    upload carries no sample sheet, as long as the sample names encode the site.
+    """
+    global _SITE_REGISTRY_CACHE
+    if _SITE_REGISTRY_CACHE is not None:
+        return _SITE_REGISTRY_CACHE
+    import csv
+    reg: Dict[str, tuple] = {}
+    path = REPO_ROOT / "data" / "sites.csv"
+    if path.is_file():
+        try:
+            for r in csv.DictReader(path.read_text(encoding="utf-8").splitlines()):
+                sid = (r.get("site_id") or "").strip().upper()
+                try:
+                    reg[sid] = (float(r["latitude"]), float(r["longitude"]))
+                except (KeyError, ValueError, TypeError):
+                    continue
+        except Exception:
+            pass
+    _SITE_REGISTRY_CACHE = reg
+    return reg
+
+
+def _site_id_from_sample(sample_id: str) -> str:
+    """`BR-GOA-MANDOVI-R01` -> `GOA-MANDOVI` (strip the BR- prefix and -R<round>)."""
+    import re
+    s = (sample_id or "").strip().upper()
+    if s.startswith("BR-"):
+        s = s[3:]
+    return re.sub(r"-R\d+$", "", s)
+
+
 def map_points(run_id: str) -> List[Dict[str, Any]]:
     """Per-site coordinates plus what was found there, for the map."""
     with _ANALYSIS_LOCK:
         cached = _ANALYSIS_CACHE.get(run_id)
-    if not cached or not cached["samples_meta"]:
+    if not cached:
         return []
 
     result = cached["analysis"]
-    by_sample = {s["sample_id"]: s for s in result["samples"]}
+    meta_by_sample = {row["sample_id"]: row for row in (cached.get("samples_meta") or [])}
+    registry = _site_registry()
 
     points = []
-    for row in cached["samples_meta"]:
-        summary = by_sample.get(row["sample_id"])
-        if not summary:
-            continue
+    for summary in result["samples"]:
+        sample_id = summary["sample_id"]
+        row = meta_by_sample.get(sample_id, {})
+
+        # 1) explicit coordinates from an uploaded sample sheet, if any …
+        latitude = longitude = None
         try:
             latitude = float(row.get("latitude") or "")
             longitude = float(row.get("longitude") or "")
-        except ValueError:
+        except (ValueError, TypeError):
+            latitude = longitude = None
+        # 2) … otherwise derive them from the known-site registry using the site
+        #    code embedded in the sample name. This is what puts the demo (and any
+        #    upload named BR-<SITE>-Rnn) on the map without a samples.csv.
+        if latitude is None or longitude is None:
+            coord = registry.get(_site_id_from_sample(sample_id))
+            if coord:
+                latitude, longitude = coord
+
+        if latitude is None or longitude is None:
             continue
         # A coordinate outside the globe is a data-entry error, and plotting it
         # sends the map to the middle of the ocean with no explanation.
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
-            log.warning("map.bad_coordinate", sample=row["sample_id"],
+            log.warning("map.bad_coordinate", sample=sample_id,
                         latitude=latitude, longitude=longitude)
             continue
 
-        site_species_list = [s for s in result["species"] if row["sample_id"] in s["samples"]]
+        site_species_list = [s for s in result["species"] if sample_id in s["samples"]]
         has_inv = False
         has_thr = False
         try:
@@ -817,10 +868,10 @@ def map_points(run_id: str) -> List[Dict[str, Any]]:
         taxa = [
             {"name": s["name"], "reads": s["reads"], "phylum": s["phylum"]}
             for s in result["species"]
-            if row["sample_id"] in s["samples"]
+            if sample_id in s["samples"]
         ][:6]
         points.append({
-            "sample_id": row["sample_id"],
+            "sample_id": sample_id,
             "site_id": summary["site_id"],
             "latitude": latitude,
             "longitude": longitude,
