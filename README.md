@@ -21,6 +21,7 @@
 </p>
 
 <p align="center">
+  <a href="docs/assets/intro.mp4"><b>Watch the intro</b></a> ·
   <a href="#quick-start"><b>Quick start</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a> ·
   <a href="#the-intelligence-layer"><b>Intelligence layer</b></a> ·
