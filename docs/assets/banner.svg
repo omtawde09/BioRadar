@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" role="img" aria-label="BioRadar: Biodiversity intelligence for Indian waters, from a litre of water.">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#effaf3"/><stop offset="1" stop-color="#d4f0e0"/></linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.2" r="0.6"><stop offset="0" stop-color="#12a26a" stop-opacity="0.35"/><stop offset="1" stop-color="#12a26a" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.4" fill="#0b3b2a" fill-opacity="0.10"/></pattern>
+  </defs>
+  <rect width="1280" height="360" rx="20" fill="url(#g)"/>
+  <rect width="1280" height="360" rx="20" fill="url(#dots)"/>
+  <rect width="1280" height="360" rx="20" fill="url(#glow)"/>
+  <g fill="none" stroke="#12a26a" stroke-opacity="0.55" stroke-width="2">
+    <circle cx="1040" cy="180" r="60"/><circle cx="1040" cy="180" r="110" stroke-opacity="0.35"/><circle cx="1040" cy="180" r="160" stroke-opacity="0.2"/>
+  </g>
+  <circle cx="1040" cy="180" r="8" fill="#12a26a"/>
+  <text x="80" y="188" font-family="Inter,'Segoe UI',Helvetica,Arial,sans-serif" font-size="92" font-weight="800" letter-spacing="-3" fill="#0b3b2a">BioRadar</text>
+  <rect x="84" y="214" width="64" height="5" rx="2.5" fill="#12a26a"/>
+  <text x="82" y="266" font-family="Inter,'Segoe UI',Helvetica,Arial,sans-serif" font-size="27" fill="#0b3b2a" fill-opacity="0.78">Biodiversity intelligence for Indian waters, from a litre of water.</text>
+</svg>
