@@ -31,6 +31,13 @@
 
 <br>
 
+<p align="center">
+  <img alt="BioRadar intro" src="docs/assets/intro.gif" width="100%">
+</p>
+<p align="center">
+  <sub>BioRadar in eight seconds. <a href="docs/assets/intro.mp4">Full-quality video</a>.</sub>
+</p>
+
 <details>
 <summary><b>Table of contents</b></summary>
 
